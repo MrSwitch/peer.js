@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="tb.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+	<style>
+		video{
+			width:300px;
+			height:300px;
+			border:1px solid #eee;
+		}
+		video.mine{
+			background:#069;
+		}
+	</style>
+</head>
+<body>
+	<h1>WebRTC</h1>
+	<video class="mine"></video>
+<script>
+
+
+var publisher = TB.initPublisher('video').on({
+	started : function(){
+		console.info('The users media has been bound to the page');
+	},
+	failure : function(){
+		alert('boo');
+	}
+});
+
+
+var session  = TB.initSession();
+session.on({
+	sessionConnected : function(event){
+		console.log('hurrah, connected');
+		session.publish(publisher);
+	},
+	streamCreated : function(event){
+		var video = document.createElement('video');
+		video.src = window.URL.createObjectURL(event.stream);
+		video.autoplay = true;
+		video.onerror = function(){
+			alert('streamdestroyed');
+		}
+		document.body.appendChild(video);
+
+	},
+	streamDestroyed : function(event){
+		console.log('streamdestroyed');
+	},
+	connectionDestroyed : function(){}
+});
+
+session.connect();
+
+
+
+
+
+
+</script>
+</body>
+</html>
