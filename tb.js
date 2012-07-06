@@ -295,7 +295,7 @@
 		this.on('processOffer', function(data){
 
 
-			peerConn[data.from] = PeerConnection(function(message){
+			var pc = PeerConnection(function(message){
 				self.send({
 					type : 'processAnswer',
 					to : data.from,
@@ -304,15 +304,15 @@
 			});
 			
 			// PeerConn
-			peerConn[data.from].addEventListener("addstream", function(event){
+			pc.addEventListener("addstream", function(event){
 				self.trigger('streamCreated', event);
 			}, false);
 
-			peerConn[data.from].addEventListener("removestream", function(event){
+			pc.addEventListener("removestream", function(event){
 				self.trigger('streamDestroyed', event);
 			}, false);
 
-			peerConn[data.from].processSignalingMessage(data.payload);
+			pc.processSignalingMessage(data.payload);
 
 		});
 
