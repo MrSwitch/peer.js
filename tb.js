@@ -1,7 +1,7 @@
 //
 //
 // TB.Lite
-//
+// @Author Andrew Dodson (@mr_swtich)
 //
 (function(){
 
