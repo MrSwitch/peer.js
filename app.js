@@ -63,12 +63,11 @@ var socket=require("socket.io");
 var io=socket.listen(app);
 
 // This has to be run on port 80
-/*
+
 io.configure(function (){
 	io.set("transports", ["xhr-polling"]);
 	io.set("polling duration", 10);
 });
-*/
 
 // Create a new Client
 io.sockets.on('connection', function (socket) {
