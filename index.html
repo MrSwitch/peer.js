@@ -4,6 +4,7 @@
 	<script src="tb.js"></script>
 	<script src="/socket.io/socket.io.js"></script>
 	<style>
+
 		video{
 			width:300px;
 			height:300px;
@@ -22,10 +23,15 @@
 
 var publisher = TB.initPublisher('video').on({
 	started : function(){
-		console.info('The users media has been bound to the page');
+		// Flip content horizontally
+		publisher.el.style.webkitTransform = "scaleX(-1)";
+
+		console.log('The users media has been bound to the page');
 	},
-	failure : function(){
-		alert('boo');
+	failure : function(event){
+		console.error( "Camera not available: " + (event&&event.code===1
+			?'user denied'
+			:'unknown'));
 	}
 });
 
@@ -33,10 +39,11 @@ var publisher = TB.initPublisher('video').on({
 var session  = TB.initSession();
 session.on({
 	sessionConnected : function(event){
-		console.log('hurrah, connected');
+		console.log('hurrah, connected to session');
 		session.publish(publisher);
 	},
 	streamCreated : function(event){
+
 		var video = document.createElement('video');
 		video.src = window.URL.createObjectURL(event.stream);
 		video.autoplay = true;
@@ -48,6 +55,10 @@ session.on({
 	},
 	streamDestroyed : function(event){
 		console.log('streamdestroyed');
+	},
+	message : function(event){
+		console.log('message');
+		console.log(event);
 	},
 	connectionDestroyed : function(){}
 });
