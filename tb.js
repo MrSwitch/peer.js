@@ -11,7 +11,6 @@
 	// URL?
 	window.URL || (window.URL = window.webkitURL);
 
-
 	// This is the massive Nut that holds it together
 	// But because its so ugly we are hiding it out of our code.
 	// This creates instances of a new PeerConnection
@@ -75,7 +74,14 @@
 
 	TB = {};
 
+	TB.peerConn = {};
+	TB.rcvConn = {};
+
 	TB.initPublisher = function( rplElm ){
+
+		if(!(this instanceof TB.initPublisher)){
+			return new TB.initPublisher(rplElm);
+		}
 
 		Events.apply(this, arguments);
 
@@ -90,50 +96,47 @@
 			rplElm = el;
 		}
 
-		// Define local vid reference
-		var vid;
 
 		// Is the item in a video element?
 		if(rplElm.tagName.toLowerCase() !== 'video'){
-			vid = document.createElement('video');
-			rplElm.appendChild(vid);
+			this.el = document.createElement('video');
+			rplElm.appendChild(this.el);
 		}
 		else{
-			vid = rplElm;
+			this.el = rplElm;
 		}
 
 		// Set AutoPlay
-		vid.autoplay = true;
+		this.el.autoplay = true;
 
 		// Create a success callback
 		// Fired when the users camera is attached
 		var _success = function(stream){
 
 			// Attach the stream to the UI
-			vid.src = URL ? URL.createObjectURL(stream) : stream;
+			self.el.src = URL ? URL.createObjectURL(stream) : stream;
 
 			// Save stream to element
 			self.stream = stream;
 
 			// Add an error event
-			vid.onerror = function () {
+			self.el.onerror = function(event) {
 				stream.stop();
-				self.trigger('failure');
+				self.trigger('failure', event);
 			};
 
 			// Trigger any success listeners.
-			vid.onload = function(){
-				self.trigger('success');
+			self.el.onload = function(){
+				self.trigger('success', event);
 			};
 
 			// Vid onload doesn't seem to fire
-			self.trigger('started');
+			self.trigger('started', stream);
 		};
 
 		// Trigger a failure
-		var _failure = function(){
-			console.log('failed');
-			method.trigger('failure');
+		var _failure = function(event){
+			self.trigger('failure', event);
 		};
 
 		// Call it?
@@ -157,13 +160,24 @@
 	// Create a New Peer Session
 	TB.initSession = function(sessionId, apiKey, token){
 
+		// Lets force a new instance
+		if(!(this instanceof TB.initSession)){
+			return new TB.initSession(sessionId, apiKey, token);
+		}
+
 		// Apply on,trigger
 		Events.apply(this, arguments);
 
 		
 		var socket,
-			peerConn = {},
 			localStream;
+
+		// We dont need to make these publicly avaliable
+		// but what the heck, maybe its useful
+		this.streams = {
+			in : {},
+			out : {}
+		};
 		
 
 		var self = this;
@@ -229,6 +243,9 @@
 		});
 
 
+		//
+		// 1. connectionCreated
+		//
 		// When someone else connects you need to send them a streamCreated event
 		this.on('connectionCreated', function(data){
 
@@ -243,7 +260,8 @@
 
 
 		//
-		// streamAvailable
+		// 2. streamAvailable
+		//
 		// When another client starts publishing they send a streamAvailable event.
 		// This client then responds requesting an OFFER
 		this.on('streamAvailable', function(data){
@@ -258,22 +276,29 @@
 
 
 		//
-		// requestOffer
+		// 3. requestOffer
+		//
 		// A client has sent a directMessage to connect to this client
 		// We obtain an OFFER from the STUN server
 		// And post it back to the other client
 		this.on('requestOffer', function(data){
 
 			if(!localStream){
-				console.log('Something went wrong you dont have a local Media');
+				console.error('Something went wrong you dont have a local Media');
 			}
 
-			peerConn[data.from] = PeerConnection(function(message){
+			var pc = PeerConnection(function(message){
 
 				// IF THIS IS CALLED IN STEP 3: Reponse to an ANSWER
 				// THEN IT WONT CONTAIN AN OFFER
 				if(message.indexOf('OFFER')===-1){
-					console.error('NOT AN OFFER');
+
+					// Occasionally if something went very wrong and we crossed streams.
+					// Then the STUN server returns a NOMATCH
+					if(message.indexOf('NOMATCH')){
+						console.error('NO MATCH ERROR');
+						console.error(message);
+					}
 					return;
 				}
 
@@ -285,17 +310,21 @@
 				});
 			});
 
-			peerConn[data.from].addStream(localStream);
+			pc.addStream(localStream);
 
+			self.streams.out[data.from] = pc;
 		});
 
 
-		// processAnswer
+		//
+		// 4. processAnswer
+		//
 		// Once we sent back an answer we should
 		this.on('processOffer', function(data){
 
 
 			var pc = PeerConnection(function(message){
+
 				self.send({
 					type : 'processAnswer',
 					to : data.from,
@@ -311,20 +340,31 @@
 			pc.addEventListener("removestream", function(event){
 				self.trigger('streamDestroyed', event);
 			}, false);
+			pc.addEventListener("message", function(event){
+				self.trigger('message', event);
+			}, false);
 
 			pc.processSignalingMessage(data.payload);
+
+			// Assign it to be collected by other things
+			self.streams.in[data.from] = pc;
 
 		});
 
 
-		// processAnswer
+		//
+		// 5. processAnswer
+		//
 		// Once we sent back an answer we should
 		this.on('processAnswer', function(data){
 
-			console.log("Signal");
+			console.debug("Signal");
 
-			peerConn[data.from].addStream(localStream);
-			peerConn[data.from].processSignalingMessage(data.payload);
+			self.streams.out[data.from].addStream(localStream);
+			self.streams.out[data.from].addEventListener("message", function(event){
+				self.trigger('message', event);
+			}, false);
+			self.streams.out[data.from].processSignalingMessage(data.payload);
 
 		});
 
