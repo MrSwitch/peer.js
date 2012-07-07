@@ -295,7 +295,7 @@
 
 					// Occasionally if something went very wrong and we crossed streams.
 					// Then the STUN server returns a NOMATCH
-					if(message.indexOf('NOMATCH')){
+					if(message.indexOf('NOMATCH')>-1){
 						console.error('NO MATCH ERROR');
 						console.error(message);
 					}
