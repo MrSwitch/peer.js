@@ -74,9 +74,6 @@
 
 	TB = {};
 
-	TB.peerConn = {};
-	TB.rcvConn = {};
-
 	TB.initPublisher = function( rplElm ){
 
 		if(!(this instanceof TB.initPublisher)){

@@ -3,27 +3,17 @@
 <head>
 	<script src="tb.js"></script>
 	<script src="/socket.io/socket.io.js"></script>
-	<style>
-
-		video{
-			width:300px;
-			height:300px;
-			border:1px solid #eee;
-		}
-		video.mine{
-			background:#069;
-		}
-	</style>
+	<link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 	<h1>WebRTC</h1>
-	<video class="mine"></video>
+	<div class="fullscreen"><video></video></div>
 <script>
 
 
 var publisher = TB.initPublisher('video').on({
 	started : function(){
-		// Flip content horizontally
+		// Flip content horizontally, so for the publisher
 		publisher.el.style.webkitTransform = "scaleX(-1)";
 
 		console.log('The users media has been bound to the page');
@@ -44,14 +34,12 @@ session.on({
 	},
 	streamCreated : function(event){
 
-		var video = document.createElement('video');
+		var video = newVideoTag();
 		video.src = window.URL.createObjectURL(event.stream);
 		video.autoplay = true;
 		video.onerror = function(){
 			alert('streamdestroyed');
 		}
-		document.body.appendChild(video);
-
 	},
 	streamDestroyed : function(event){
 		console.log('streamdestroyed');
@@ -67,6 +55,31 @@ session.connect();
 
 
 
+/**
+ * Helper function to create clickable images of the video streams coming in.
+ */
+(function(){
+	var i=0;
+
+	window.newVideoTag = function (){
+
+		var div = document.createElement('div');
+		div.className = String.fromCharCode(i++ +97);
+		div.addEventListener('click', function(){
+			// swap classNames
+			document.querySelector('.fullscreen').className = this.className;
+			this.className = 'fullscreen';
+		});
+
+		var video = document.createElement('video');
+		video.autoplay = true;
+		div.appendChild(video);
+
+		document.body.appendChild(div);
+
+		return video;
+	}
+})();
 
 
 
