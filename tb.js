@@ -1,9 +1,40 @@
 //
 //
 // TB.Lite
-// @Author Andrew Dodson (@mr_swtich)
+// @author Andrew Dodson (@mr_switch)
 //
-(function(){
+(function(document, window){
+
+	// Switch between development and production
+	var host;
+	if(window.location.hostname==='local.knarly.com'){
+		host = window.location.hostname + ':5000';
+	}
+
+	// An internal Queue for delaying the load
+	var Queue = new Events();
+
+	// Load SocketIO if it doesn't exist
+	if(typeof(io)==='undefined'){
+		var script = document.createElement('script');
+		script.src = (host ? 'http://' + host : '') + "/socket.io/socket.io.js";
+		script.onreadystatechange= function () {
+			if (this.readyState == 'complete') {
+				Queue.trigger('loaded');
+			}
+		}
+		script.onload= function(){
+			Queue.trigger('loaded');
+		};
+		var ref = document.getElementsByTagName('script')[0];
+		if(ref.parentNode){
+			ref.parentNode.insertBefore(script,ref);
+		}
+	}
+
+	// Define the location  of the socket IO server
+	var ws = 'ws://' + (host ? host : window.location.hostname);
+
 
 	// Does this browser support WebRTC?
 	navigator.getUserMedia || (navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
@@ -32,9 +63,9 @@
 
 	// EVENTS
 	// Extend the function we do have.
-	var Events = function(){
+	function Events(){
 
-		this._listeners = {};
+		this.events = {};
 
 		// Return
 		this.on = function(name, callback){
@@ -49,10 +80,10 @@
 
 			if(callback){
 				// Set the listeners if its undefined
-			this._listeners[name] || (this._listeners[name] = []);
+			this.events[name] || (this.events[name] = []);
 
 				// Append the new callback to the listeners
-				this._listeners[name].push(callback);
+				this.events[name].push(callback);
 			}
 
 			return this;
@@ -61,8 +92,8 @@
 			// Trigger Events defined on the publisher widget
 		this.trigger = function(name,evt){
 				console.log('Triggered: ' + name);
-				if(this._listeners[name]){
-					this._listeners[name].forEach(function(o,i){
+				if(this.events[name]){
+					this.events[name].forEach(function(o,i){
 						o(evt);
 					});
 				}
@@ -181,18 +212,30 @@
 
 		// Add listeners for new messages
 		this.connect = function(video){
-			// Given a video tag
-			// Broadcast to all parties the new stream
-			socket = io.connect('ws://'+window.location.host );
 
-			// Define an onload handler
-			socket.on('message', function(data){
-				console.info("WebSocket Message " + data);
+			var action = function(){
+				// Given a video tag
+				// Broadcast to all parties the new stream
+				socket = io.connect( ws );
 
-				data = JSON.parse(data);
+				// Define an onload handler
+				socket.on('message', function(data){
+					console.info("WebSocket Message " + data);
 
-				self.trigger(data.type,data);
-			});
+					data = JSON.parse(data);
+
+					self.trigger(data.type,data);
+				});
+			};
+
+			if(typeof(io)==='undefined'){
+				Queue.on('loaded', action);
+			}
+			else{
+				action();
+			}
+
+			return this;
 		};
 
 		// Publish a new LocalMedia object
@@ -369,5 +412,7 @@
 		return this;
 	};
 
+	// Does the browser support everything?
+	TB.supported = navigator.getUserMedia && (window.webkitPeerConnection || window.webkitDeprecatedPeerConnection);
 
-})();
+})(document, window);

@@ -2,16 +2,22 @@
 <html>
 <head>
 	<script src="tb.js"></script>
-	<script src="/socket.io/socket.io.js"></script>
 	<link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-	<h1>WebRTC</h1>
-	<div class="fullscreen"><video></video></div>
+	<h1>WebRTC, <br/>multipeer demo <br/><cite>by @mr_switch</cite></h1>
 <script>
 
+if(!TB.supported){
+	document.write('<p style="color:red;">Snap your browser needs getUserMedia and PeerConnection: see <a href="http://www.webrtc.org/running-the-demos">http://www.webrtc.org/running-the-demos</a> for more help</p>');
+}
 
-var publisher = TB.initPublisher('video').on({
+
+// Create new Video tag
+var myvideo = CreateVideoTag();
+
+// Initiate the users own camera
+var publisher = TB.initPublisher(myvideo).on({
 	started : function(){
 		// Flip content horizontally, so for the publisher
 		publisher.el.style.webkitTransform = "scaleX(-1)";
@@ -34,7 +40,7 @@ session.on({
 	},
 	streamCreated : function(event){
 
-		var video = newVideoTag();
+		var video = CreateVideoTag();
 		video.src = window.URL.createObjectURL(event.stream);
 		video.autoplay = true;
 		video.onerror = function(){
@@ -54,33 +60,27 @@ session.on({
 session.connect();
 
 
+//
+// Helper function to create clickable images of the video streams coming in.
+//
+function CreateVideoTag(){
+	var div = document.createElement('div');
+	var i = document.querySelectorAll('video').length;
+	div.className = String.fromCharCode(i +97);
+	div.addEventListener('click', function(){
+		// swap classNames
+		document.querySelector('.a').className = this.className;
+		this.className = 'a';
+	});
 
-/**
- * Helper function to create clickable images of the video streams coming in.
- */
-(function(){
-	var i=0;
+	var video = document.createElement('video');
+	video.autoplay = true;
+	div.appendChild(video);
 
-	window.newVideoTag = function (){
+	document.body.appendChild(div);
 
-		var div = document.createElement('div');
-		div.className = String.fromCharCode(i++ +97);
-		div.addEventListener('click', function(){
-			// swap classNames
-			document.querySelector('.fullscreen').className = this.className;
-			this.className = 'fullscreen';
-		});
-
-		var video = document.createElement('video');
-		video.autoplay = true;
-		div.appendChild(video);
-
-		document.body.appendChild(div);
-
-		return video;
-	}
-})();
-
+	return video;
+}
 
 
 </script>
