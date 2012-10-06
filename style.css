@@ -1,11 +1,15 @@
 /**
  * Style
  */
+*{
+	box-sizing:border-box;
+}
 body{
 	font-family:Verdana;
 	color: hotpink;
 	font-family: Verdana;
 	text-shadow: 1px 1px 4px black;
+	margin:0;
 }
 h1{
 	-webkit-transform: rotate(-10deg);
@@ -16,6 +20,24 @@ h1{
 h1 cite{
 	color:lime;
 }
+
+/**
+ * Share
+ * This is the panel which gives instructions to the user where they first connect
+ */
+#share{
+	position: absolute;
+	top: 45%;
+	width: 100%;
+	text-align: center;
+	background-color: white;
+	z-index: 1;
+	padding: 30px;	
+}
+
+/**
+ * Video
+ */
 div{
 	position:fixed;
 	box-sizing:border-box;
@@ -48,3 +70,26 @@ div{
 .c{left:25%;right:50%;}
 .d{left:50%;right:25%;}
 .e{left:75%;right:0;}
+
+/**
+ * Info
+ */
+div[data-status]:after{
+	content:attr(data-status);
+	position:absolute;
+	top:50%;
+	left:0;
+	text-align:center;
+	right:0;
+	z-index:-1;
+}
+
+div[data-status=caller]:after{
+	color:lime;
+}
+div[data-status=calling]:after{
+	color:lime;
+}
+div[data-status=local]:after{
+	content:"[Click on one of the boxes along the bottom to call... Grant access to your mic and camera when you see the sign]";
+}

@@ -63,56 +63,64 @@ var socket=require("socket.io");
 var io=socket.listen(app);
 
 // This has to be run on port 80
-
 io.configure(function (){
 	io.set("transports", ["xhr-polling"]);
 	io.set("polling duration", 10);
 });
-
+/**/
 // Create a new Client
-io.sockets.on('connection', function (socket) {
+io.sockets.on('connection', function (socket, data) {
 
-	// Tell the client that the connection succeeded
-	socket.emit('ready');
 
-	// Broadcast to yourself that you have entered the room
-	socket.send(JSON.stringify({
-		type : 'sessionConnected',
-		from : socket.id
-	}));
+	socket.on('register', function(group){
 
-	socket.broadcast.send(JSON.stringify({
-		type : 'connectionCreated',
-		from : socket.id
-	}));
+		group = group||'';
+		
+		// Join Group
+		socket.join(group);
 
-	console.log('New connection');
-
-    // Listen to events
-    socket.on('message', function(data){
-
-		console.log('Message Recieved');
-
-		data = JSON.parse(data);
-
-		data.from = socket.id;
-
-		console.log(data);
-
-		// How do we handle this message?
-		// Does the message contain a 'to' field?
-		if(data.to){
-			io.sockets.socket(data.to).send(JSON.stringify(data));
-		}
-		else{
-			socket.broadcast.send(JSON.stringify(data));
-		}
-    });
-/*
-	socket.on('disconnected', function(){
-		socket.broadcast.send(JSON.stringify({
-			type : 'connectionDestroyed',
-			id : socket.id
+		// Broadcast to yourself that you have entered the room
+		socket.send(JSON.stringify({
+			type : 'sessionConnected',
+			from : socket.id,
+			to : socket.id
 		}));
-	}); */
+
+		// 
+		socket.broadcast.to(group).send(JSON.stringify({
+			type : 'connectionCreated',
+			from : socket.id
+		}));
+
+		console.log('New connection');
+
+		// Listen to events
+		socket.on('message', function(data){
+
+			console.log('Message Recieved');
+
+			data = JSON.parse(data);
+
+			data.from = socket.id;
+
+			console.log(data);
+
+			// How do we handle this message?
+			// Does the message contain a 'to' field?
+			if(data.to){
+				io.sockets.socket(data.to).send(JSON.stringify(data));
+			}
+			else{
+				socket.broadcast.to(group).send(JSON.stringify(data));
+			}
+		});
+
+		// Tell everyone when your disconnected
+		socket.on('disconnect', function(){
+			socket.broadcast.send(JSON.stringify({
+				type : 'disconnected',
+				from : socket.id
+			}));
+		});
+	});
 });

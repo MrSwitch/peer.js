@@ -1,18 +1,22 @@
 //
 //
-// TB.Lite
+// WebRTC Client Controler
 // @author Andrew Dodson (@mr_switch)
+// @since July added the  
 //
 (function(document, window){
 
 	// Switch between development and production
-	var host;
-	if(window.location.hostname==='local.knarly.com'){
+	var host, local = false;
+	if(window.location.hostname.match(/local/)){
+		var local = true;
 		host = window.location.hostname + ':5000';
+		console.log("This is running on a local environment and automatically assumes you have Node app.js running on port 5000");
 	}
 
 	// An internal Queue for delaying the load
 	var Queue = new Events();
+
 
 	// Load SocketIO if it doesn't exist
 	if(typeof(io)==='undefined'){
@@ -42,21 +46,31 @@
 	// URL?
 	window.URL || (window.URL = window.webkitURL);
 
+	// RTC Peer
+	// I think this is a new standard coming in a beta Chrome
+	var RTCPeer = true;
+
 	// This is the massive Nut that holds it together
 	// But because its so ugly we are hiding it out of our code.
 	// This creates instances of a new PeerConnection
 	function PeerConnection(callback){
-		var peerConn;
-		try {
-			peerConn = new webkitDeprecatedPeerConnection("STUN stun.l.google.com:19302", callback);
-		} catch (e) {
+		var pc, 
+			pc_config = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]},
+ 			stun = local?null:"STUN stun.l.google.com:19302";
+		try{
+			pc = new webkitRTCPeerConnection(pc_config);
+			pc.onicecandidate = function(e){
+				callback(e.candidate);
+			};
+		}catch(e){
 			try {
-				peerConn = new webkitPeerConnection("STUN stun.l.google.com:19302", callback);
+				pc = new webkitPeerConnection00(stun, callback);
+				RTCPeer = false;
 			} catch (e) {
-				console.log("Failed to create PeerConnection, exception: " + e.message);
+				console.error("Failed to create PeerConnection, exception: " + e.message);
 			}
 		}
-		return peerConn;
+		return pc;
 	}
 
 
@@ -70,26 +84,43 @@
 		// Return
 		this.on = function(name, callback){
 
-			if(typeof(name)==='object'){
+			// If there is no name
+			if(name===true){
+				callback();
+			}
+			else if(typeof(name)==='object'){
 				for(var x in name){
 					this.on(x, name[x]);
 				}
-				return this;
 			}
-			console.log('ATTACHED: ' + name);
+			else if (name.indexOf(',')>-1){
+				for(var i=0,a=name.split(',');i<a.length;i++){
+					this.on(a[i],callback);
+				}
+			}
+			else {
+				console.log('ATTACHED: ' + name);
 
-			if(callback){
-				// Set the listeners if its undefined
-			this.events[name] || (this.events[name] = []);
+				if(callback){
+					// Set the listeners if its undefined
+					this.events[name] || (this.events[name] = []);
 
-				// Append the new callback to the listeners
-				this.events[name].push(callback);
+					// Append the new callback to the listeners
+					this.events[name].push(callback);
+				}
 			}
 
 			return this;
 		};
 
-			// Trigger Events defined on the publisher widget
+		// One
+		// One is the same as On, but events are only fired once and must be reestablished afterwards
+		this.one = function(name, callback){
+			var self = this;
+			this.on(name, function once(){ self.off(name,once); callback.apply(this, arguments);} );
+		}		
+
+		// Trigger Events defined on the publisher widget
 		this.trigger = function(name,evt){
 				console.log('Triggered: ' + name);
 				if(this.events[name]){
@@ -100,15 +131,26 @@
 
 				return this;
 		};
+
+		// Remove a callback
+		this.off = function(name, callback){
+			if(this.events[name]){
+				for( var i=0; i< this.events[name].length; i++){
+					if(this.events[name][i] === callback){
+						this.events[name].splice(i,1);
+					}
+				}
+			}
+		}
 	};
 
 
 	TB = {};
 
-	TB.initPublisher = function( rplElm ){
+	TB.LocalMedia = function( rplElm ){
 
-		if(!(this instanceof TB.initPublisher)){
-			return new TB.initPublisher(rplElm);
+		if(!(this instanceof TB.LocalMedia)){
+			return new TB.LocalMedia(rplElm);
 		}
 
 		Events.apply(this, arguments);
@@ -167,17 +209,29 @@
 			self.trigger('failure', event);
 		};
 
-		// Call it?
-		try{
-			navigator.getUserMedia({audio:true,video:true}, _success, _failure);
-		}
-		catch(e){
+		this.connect = function(callback){
+
+			if(this.stream){
+				callback(this.stream);
+				return this;
+			}
+
+			// Add callback
+			self.on('started,failure', callback);
+
+			// Call it?
 			try{
-				navigator.getUserMedia('audio,video', _success, _failure);
+				navigator.getUserMedia({audio:true,video:true}, _success, _failure);
 			}
 			catch(e){
-				_failure();
+				try{
+					navigator.getUserMedia('audio,video', _success, _failure);
+				}
+				catch(e){
+					_failure();
+				}
 			}
+			return this;
 		}
 
 		return this;
@@ -202,78 +256,82 @@
 
 		// We dont need to make these publicly avaliable
 		// but what the heck, maybe its useful
-		this.streams = {
-			in : {},
-			out : {}
-		};
-		
+		this.streams = {};
 
 		var self = this;
 
 		// Add listeners for new messages
 		this.connect = function(video){
 
-			var action = function(){
+			Queue.on(typeof(io)!=='undefined'||'loaded', function(){
 				// Given a video tag
 				// Broadcast to all parties the new stream
 				socket = io.connect( ws );
+				socket.emit('register', sessionId );
 
 				// Define an onload handler
 				socket.on('message', function(data){
-					console.info("WebSocket Message " + data);
+					console.info("ws// Received Message " + data);
 
 					data = JSON.parse(data);
 
 					self.trigger(data.type,data);
 				});
-			};
-
-			if(typeof(io)==='undefined'){
-				Queue.on('loaded', action);
-			}
-			else{
-				action();
-			}
+			});
 
 			return this;
 		};
 
 		// Publish a new LocalMedia object
-		this.publish = function(camera){
-			// Given a video tag
-			// Lets pass in the SDP over
-			var action = function(){
-				localStream = camera.stream;
+		this.addMedia = function(media){
+			// Given a Media object, aka a video stream
+			// Add it to the run or watch list
+			media.on( !!media.stream || 'started', function(){
+				localStream = media.stream;
 				// Socket
-				self.send({
-					type : 'streamAvailable'
-				});
-			};
+				self.trigger('mediaAdded', media);
+			});
 
-			// LocalStream
-			if(camera.stream){
-				action();
-			}
-			else{
-				camera.on('started', action);
-			}
+			return this;
 		};
 
 		// Send message
 		this.send = function(o){
+			console.log("Sending: "+ o.type);
 			socket.send(JSON.stringify(o));
+			return this;
+		};
+
+		// Send an invite for the other client(s) to connect with this app?
+		this.invite = function(id){
+
+			this.one(!!localStream || 'mediaAdded', function(){
+				self.send({
+					type : 'invite',
+					to : id
+				});
+			});
+
+			return this;
+		};
+
+		this.accept = function(id){
+
+			// If the local steam doesn exist then listen to mediaAdded event
+			this.one(!!localStream || 'mediaAdded', function(){
+				self.trigger('accept'+id);
+			});
+
+			return this;
 		};
 
 
-
-
-		// Bind events
-
-
+		// EVENTS
 
 		// When your client first connects you recieve a sessionConnected Event
-		this.on('sessionConnected', function(){
-
+		this.on('sessionConnected', function(data){
+			// Assign local id
+			self.id = data.from;
 		});
 
 
@@ -286,16 +344,21 @@
 		//
 		// 1. connectionCreated
 		//
-		// When someone else connects you need to send them a streamCreated event
+		// When someone else connects we get a stream created event from them
 		this.on('connectionCreated', function(data){
 
-			// If we have a localStream defined lets tell the end user that a stream is available
-			if(localStream){
-				self.send({
-					type : 'streamAvailable',
+			if(!("to" in data)){
+				// send one back
+				socket.send(JSON.stringify({
+					type : 'connectionCreated',
 					to : data.from
-				});
+				}));
 			}
+
+			// this could have a default of making a connection,
+			// This can be useful if there is no need to add media before.
+
+			// I guess when this is ready we could Add Media as required
 		});
 
 
@@ -304,13 +367,15 @@
 		//
 		// When another client starts publishing they send a streamAvailable event.
 		// This client then responds requesting an OFFER
-		this.on('streamAvailable', function(data){
+		this.on('invite', function(data){
 
 			// Received a connectionCreated event
 			// Get their stream?
-			self.send({
-				type : 'requestOffer',
-				to : data.from
+			self.one('accept'+data.from, function(){
+				self.send({
+					type : 'requestOffer',
+					to : data.from
+				});
 			});
 		});
 
@@ -323,36 +388,67 @@
 		// And post it back to the other client
 		this.on('requestOffer', function(data){
 
+			// Do we have a localStream?
 			if(!localStream){
-				console.error('Something went wrong you dont have a local Media');
+				console.error('Something went wrong, a stream must\'ve been ditched');
+				return;
 			}
 
-			var pc = PeerConnection(function(message){
+			// Do we already have a PeerConnection for this user
+			if(data.from in self.streams){
+				// A peer connection for this user has already been created
+				// This request is going to be ignored
+				console.error("Offer/Answer already sent, only one party can do this");
+				return;
+			}
 
-				// IF THIS IS CALLED IN STEP 3: Reponse to an ANSWER
-				// THEN IT WONT CONTAIN AN OFFER
-				if(message.indexOf('OFFER')===-1){
 
-					// Occasionally if something went very wrong and we crossed streams.
-					// Then the STUN server returns a NOMATCH
-					if(message.indexOf('NOMATCH')>-1){
-						console.error('NO MATCH ERROR');
-						console.error(message);
-					}
+			// Create a new PeerConnection
+			console.log("Creating PeerConnection");
+			var pc = self.streams[data.from] = PeerConnection(function(candidate){
+				if(!candidate){
 					return;
 				}
+				self.send({
+					type: 'candidate',
+					label: candidate.label||candidate.sdpMLineIndex, 
+					candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate
+				});
+				return;
+			});
+
+			pc.addEventListener("addstream", function(e){
+				e.from = data.from;
+				self.trigger('streamCreated', e);
+			}, false);
+
+			// Add local stream
+			// run now it localSteam exists
+			self.one(!!localStream || 'mediaAdded', function(){
+				pc.addStream(localStream);
+			});
+
+			// Create Offer
+			if(RTCPeer){
+				pc.createOffer(function(sessionDescr){
+					pc.setLocalDescription(sessionDescr);
+					self.send(sessionDescription);
+				}, null, {'has_audio':true, 'has_video':true});
+			}else{
+				var offer = pc.createOffer({'has_audio':true, 'has_video':true});
+				pc.setLocalDescription(pc.SDP_OFFER, offer);
 
 				// DISPATCH OFFER
 				self.send({
 					type : 'processOffer',
 					to : data.from,
-					payload : message
+					sdp : offer.toSdp()
 				});
-			});
 
-			pc.addStream(localStream);
+				pc.startIce();
+			}
 
-			self.streams.out[data.from] = pc;
+//			self.streams[data.to] = pc;
 		});
 
 
@@ -362,32 +458,64 @@
 		// Once we sent back an answer we should
 		this.on('processOffer', function(data){
 
+			// Do we already have a PeerConnection for this user
+			if(data.from in self.streams){
+				// A peer connection for this user has already been created
+				// This request is going to be ignored
+				console.error("Offer already sent, only one party can do this");
+				return;
+			}
+			
 
-			var pc = PeerConnection(function(message){
+			var pc = self.streams[data.from] = PeerConnection(function(candidate){
+				if(!candidate){
+					return;
+				}
+				self.send({
+					type: 'candidate',
+					label: candidate.label||candidate.sdpMLineIndex, 
+					candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate
+				});
+			});
+
+			self.one(!!localStream || 'mediaAdded', function(){
+				pc.addStream(localStream);
+			});
+
+			pc.addEventListener("addstream", function(e){
+				e.from = data.from;
+				self.trigger('streamCreated', e);
+			}, false);
+
+
+			if(RTCPeer){
+				pc.setRemoteDescription(new RTCSessionDescription(data));
+
+				pc.createAnswer(function(sessionDescr){
+					pc.setLocalDescription(sessionDescr);
+					self.send(sessionDescription);
+				}, null, {'has_audio':true, 'has_video':true});
+			}
+			else{
+				pc.setRemoteDescription(pc.SDP_OFFER, new SessionDescription(data.sdp));
+
+				var offer = pc.remoteDescription;
+				var answer = pc.createAnswer(offer.toSdp(), {'has_audio':true, 'has_video':true});
+
+				pc.setLocalDescription(pc.SDP_ANSWER, answer);
 
 				self.send({
 					type : 'processAnswer',
 					to : data.from,
-					payload : message
+					sdp : answer.toSdp()
 				});
-			});
-			
-			// PeerConn
-			pc.addEventListener("addstream", function(event){
-				self.trigger('streamCreated', event);
-			}, false);
 
-			pc.addEventListener("removestream", function(event){
-				self.trigger('streamDestroyed', event);
-			}, false);
-			pc.addEventListener("message", function(event){
-				self.trigger('message', event);
-			}, false);
+				pc.startIce();
+			}
 
-			pc.processSignalingMessage(data.payload);
 
 			// Assign it to be collected by other things
-			self.streams.in[data.from] = pc;
+			self.streams[data.from] = pc;
 
 		});
 
@@ -398,21 +526,38 @@
 		// Once we sent back an answer we should
 		this.on('processAnswer', function(data){
 
-			console.debug("Signal");
-
-			self.streams.out[data.from].addStream(localStream);
-			self.streams.out[data.from].addEventListener("message", function(event){
-				self.trigger('message', event);
-			}, false);
-			self.streams.out[data.from].processSignalingMessage(data.payload);
-
+			if(RTCPeer){
+				self.streams[data.from].setRemoteDescription(new RTCSessionDescription(data));
+			}
+			else{
+				self.streams[data.from].setRemoteDescription(self.streams[data.from].SDP_ANSWER, new SessionDescription(data.sdp));
+			}
 		});
+
+
+		// not sure what ICE candidate is for
+		this.on('candidate', function(data){
+			if(RTCPeer){
+				var candidate = new RTCIceCandidate({
+					sdpMLineIndex:data.label,
+					candidate:data.candidate
+				});
+				self.streams[data.from].addIceCandidate(candidate);
+			}
+			else{
+				var candidate = new IceCandidate(data.label, data.candidate);
+				self.streams[data.from].processIceMessage(candidate);
+			}
+		});
+
+
+
 
 
 		return this;
 	};
 
 	// Does the browser support everything?
-	TB.supported = navigator.getUserMedia && (window.webkitPeerConnection || window.webkitDeprecatedPeerConnection);
+	TB.supported = navigator.getUserMedia && (window.webkitPeerConnection00 || window.webkitPeerConnection || window.webkitDeprecatedPeerConnection);
 
 })(document, window);
