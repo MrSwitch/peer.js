@@ -11,7 +11,11 @@
 	if(window.location.hostname.match(/local/)){
 		var local = true;
 		host = window.location.hostname + ':5000';
-		console.log("This is running on a local environment and automatically assumes you have Node app.js running on port 5000");
+		console.log("This is running on a local environment and automatically assumes you have http://github.com/MrSwitch/messaging.io running on port 5000");
+	}
+	else{
+		// Path to the Heroku messaging.io
+		host = "deep-planet-5370.herokuapp.com";
 	}
 
 	// An internal Queue for delaying the load
