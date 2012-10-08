@@ -67,6 +67,7 @@ io.configure(function (){
 	io.set("transports", ["xhr-polling"]);
 	io.set("polling duration", 10);
 });
+
 /**/
 // Create a new Client
 io.sockets.on('connection', function (socket, data) {
@@ -139,4 +140,5 @@ io.sockets.on('connection', function (socket, data) {
 			}));
 		});
 	});
+
 });
