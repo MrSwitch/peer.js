@@ -5,7 +5,106 @@
 <meta http-equiv="x-ua-compatible" content="IE=edge,chrome=1" />
 
 <script src="tb.js"></script>
-<link rel="stylesheet" href="style.css"/>
+<style>
+
+/**
+ * Style
+ */
+*{
+	box-sizing:border-box;
+}
+body{
+	font-family:Verdana;
+	color: hotpink;
+	font-family: Verdana;
+	text-shadow: 1px 1px 4px black;
+	margin:0;
+}
+h1{
+	-webkit-transform: rotate(-10deg);
+	-webkit-transform-origin: 0 0;
+	position:absolute;
+	z-index:2;
+}
+h1 cite{
+	color:lime;
+}
+
+/**
+ * Share
+ * This is the panel which gives instructions to the user where they first connect
+ */
+#share{
+	position: absolute;
+	top: 45%;
+	width: 100%;
+	text-align: center;
+	background-color: white;
+	z-index: 1;
+	padding: 30px;	
+}
+
+/**
+ * Video
+ */
+div{
+	position:fixed;
+	box-sizing:border-box;
+	-webkit-transition:left 0.3s, top 0.3s, right 0.3s, bottom 0.3s, width 0.3s;
+	background-color:rgba(0,0,0,0.1);
+}
+	div video{
+		box-sizing:border-box;
+		width:100%;
+		height:100%;
+	}
+.a{
+	top:0;
+	bottom:0;
+	left:0;
+	right:0;
+	width:100%;
+	height:100%;
+	padding:0;
+}
+.b,.c,.d,.e{
+	z-index:1;
+	padding:0;
+	width:25%;
+	top:75%;
+	bottom:0;
+	left:0;
+}
+.b{right:75%;}
+.c{left:25%;right:50%;}
+.d{left:50%;right:25%;}
+.e{left:75%;right:0;}
+
+/**
+ * Info
+ */
+div[data-status]:after{
+	content:attr(data-status);
+	position:absolute;
+	top:50%;
+	left:0;
+	text-align:center;
+	right:0;
+	z-index:-1;
+}
+
+div[data-status=caller]:after{
+	color:lime;
+}
+div[data-status=calling]:after{
+	color:lime;
+}
+div[data-status=local]:after{
+	content:"[Click on one of the boxes along the bottom to call... Grant access to your mic and camera when you see the sign]";
+}
+
+</style>
+
 
 <h1>WebRTC, <br/>multipeer demo <br/><cite>by @mr_switch</cite></h1>
 <aside id="share"><p>Share this page with your buddy</p><p>(or open in create a new tab <a href="" target="_blank"></a>)</p><p>This is a demo, it might even work!</p></aside>
