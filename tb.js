@@ -304,8 +304,12 @@
 					console.info("ws// Received Message " + data);
 
 					data = JSON.parse(data);
+					var type = data.type;
+					try{
+						delete data.type;
+					}catch(e){}
 
-					self.trigger(data.type,data);
+					self.trigger(type,data);
 				});
 			});
 
@@ -331,9 +335,11 @@
 		};
 
 		// Send message
-		this.send = function(o){
-			console.log("Sending: "+ o.type);
-			self.socket.send(JSON.stringify(o));
+		this.send = function(name, data){
+			data = data || {};
+			data.type = name;
+			console.log("Sending: "+ data.type);
+			self.socket.send(JSON.stringify(data));
 			return this;
 		};
 
@@ -349,8 +355,7 @@
 				if(!candidate){
 					return;
 				}
-				self.send({
-					type: 'candidate',
+				self.send('candidate',{
 					label: candidate.label||candidate.sdpMLineIndex, 
 					candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate,
 					to : id
@@ -442,8 +447,7 @@
 				pc.setLocalDescription(pc.SDP_OFFER, offer);
 
 				// DISPATCH OFFER
-				self.send({
-					type : 'invite',
+				self.send('invite',{
 					to : id,
 					sdp : offer.toSdp()
 				});
@@ -494,8 +498,7 @@
 
 				pc.setLocalDescription(pc.SDP_ANSWER, answer);
 
-				self.send({
-					type : 'accept',
+				self.send('accept',{
 					to : data.from,
 					sdp : answer.toSdp()
 				});
@@ -524,9 +527,7 @@
 		// The default steps maybe cancelled using e.preventDefault()
 		this.on('default:init', function(data){
 			// Tell everyone we're online
-			self.send({
-				type : 'connect'
-			})
+			self.send('connect');
 		});
 
 		// Step B
@@ -537,8 +538,7 @@
 			// Obviously we dont want to process this if we sent it.
 			if(!("to" in data)){
 				// send one back so that everyone knows everyone else
-				self.send({
-					type : 'connect',
+				self.send('connect',{
 					to : data.from
 				});
 			}
@@ -613,7 +613,6 @@
 			}
 		});
 
-
 		// When someone disconnects you get this fired
 		this.on('disconnect', function(data){
 			if((data.from in self.streams) && ("close" in self.streams[data.from])){
@@ -628,9 +627,7 @@
 
 
 		window.onbeforeunload = function(){
-			self.send({
-				type : 'disconnect',
-			})
+			self.send('disconnect');
 		};
 
 
