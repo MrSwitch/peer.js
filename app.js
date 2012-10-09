@@ -82,15 +82,9 @@ io.sockets.on('connection', function (socket, data) {
 
 		// Broadcast to yourself that you have entered the room
 		socket.send(JSON.stringify({
-			type : 'sessionConnected',
+			type : 'init',
 			from : socket.id,
 			to : socket.id
-		}));
-
-		// 
-		socket.broadcast.to(group).send(JSON.stringify({
-			type : 'connectionCreated',
-			from : socket.id
 		}));
 
 		console.log('New connection');
@@ -135,7 +129,7 @@ io.sockets.on('connection', function (socket, data) {
 		// Tell everyone when your disconnected
 		socket.on('disconnect', function(){
 			socket.broadcast.send(JSON.stringify({
-				type : 'disconnected',
+				type : 'disconnect',
 				from : socket.id
 			}));
 		});
