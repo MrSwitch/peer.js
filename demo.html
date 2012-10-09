@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+<title>WebRTC demo by Andrew Dodson</title>
+<!-- use the latest IE browser always, and optionally use chrome frame if installed -->
+<meta http-equiv="x-ua-compatible" content="IE=edge,chrome=1" />
+
+<script src="tb.js"></script>
+<link rel="stylesheet" href="style.css"/>
+
+<h1>WebRTC, <br/>multipeer demo <br/><cite>by @mr_switch</cite></h1>
+<aside id="share"><p>Share this page with your buddy</p><p>(or open in create a new tab <a href="" target="_blank"></a>)</p><p>This is a demo, it might even work!</p></aside>
+<script>
+
+if(!TB.supported){
+	document.getElementById('share').innerHTML = '<p>Ssssnap! your browser needs getUserMedia and PeerConnection: see <a href="http://www.webrtc.org/running-the-demos">http://www.webrtc.org/running-the-demos</a> for more help.</p><p> This is currently only made generally available in Chrome 22 with the Peer Connection flags turned on</p><img src="http://www.webrtc.org/_/rsrc/1337168437277/running-the-demos/Screen%20shot%202012-05-16%20at%201.34.53%20PM.png" />';
+	document.getElementById('share').style.top = '100px';
+}
+else{
+
+	// Create a unique_id to user as a session id
+	window.location.hash || (window.location.hash = parseInt(Math.random()*1e5,16).toString(16));
+
+	var aside = document.querySelector('#share a');
+	aside.href = window.location.href;
+	aside.innerHTML = aside.href;
+	aside = aside.parentNode.parentNode;
+
+}
+
+
+// Create new Video tag
+var myvideo = CreateVideoTag();
+myvideo.parentNode.setAttribute('data-status',"local");
+
+// Initiate the users own camera
+var myMedia = TB.LocalMedia(myvideo).on({
+	started : function(){
+		// Flip content horizontally, so for the publisher
+		myvideo.style.webkitTransform = "scaleX(-1)";
+		myvideo.parentNode.setAttribute('data-status',"myvideo");
+		console.log('The users media has been bound to the page');
+	},
+	failure : function(event){
+		console.error( "Camera not available: " + (event&&event.code===1
+			?'user denied'
+			:'unknown'));
+	}
+});
+
+
+var session  = TB.initSession(window.location.hash).on({
+	init : function(event){
+	},
+
+	// Every time a new connection occurs
+	connect : function(event){
+
+		// Typically this would automatically initiate a call with all users
+		// And we would need to handle the streamCreated events
+		event.preventDefault();
+
+		if(session.id === event.from){
+			return;
+		}
+		aside.style.display = 'none';
+		console.log('hurrah, connected to session'+event.from);
+		// Ok lets put a button on this page to initiate a call
+		var video = CreateVideoTag();
+		video.id = event.from;
+		video.parentNode.setAttribute('data-status', "[Click to Call]");
+		video.addEventListener('click', function(){
+			if(this.getAttribute('src')){
+				console.log("Already called");
+				return;
+			}
+			video.parentNode.setAttribute('data-status', "calling");
+
+			// Start a Call by setting the Media your end
+			// .. and then triggering the response
+			session.addMedia(myMedia.connect(function(e){
+				console.log("Yeah started");
+				// Once the users media has been added, 
+				// Lets start the call
+				// Invite the other party to a call
+				session.invite(event.from);
+			}));
+
+		});
+	},
+	// When we can an invite here's how we cope
+	invite : function(event){
+		// Stop Auto Accepting, although we call it later anyway
+		event.preventDefault();
+
+		var video = document.getElementById(event.from);
+		video.parentNode.setAttribute('data-status', "caller");
+		document.querySelector('audio').play();
+		session.addMedia(myMedia.connect(function(){
+			document.querySelector('audio').pause();
+			video.parentNode.setAttribute('data-status', "connecting");
+			session.accept(event);
+		}));
+
+	},
+	media : function(event){
+
+		console.log("streamcreated");
+		console.log(event);
+		var video = document.getElementById(event.from);
+		video.src = window.URL.createObjectURL(event.stream);
+		video.autoplay = true;
+		video.parentNode.setAttribute('data-status', "video");
+		video.onerror = function(){
+			alert('streamdestroyed');
+		}
+	},
+	mediaRemoved : function(event){
+		console.log('streamdestroyed');
+	},
+	message : function(event){
+		console.log('message');
+		console.log(event);
+	},
+	disconnect : function(data){
+		// Fired when ever anyone leaves
+		var video = document.getElementById(data.from);
+		if(video){
+			var p = video.parentNode;
+			p.parentNode.removeChild(p);
+			var n = document.querySelectorAll('div:not(.a)'),
+				a = document.querySelectorAll('div.a');
+			// relabel all the videos
+			if(n){
+				for(var i=0;i<n.length;i++){
+					n[i].className = String.fromCharCode(i+(a.length +97));
+				}
+			}
+		}
+	}
+}).connect();
+
+
+
+//
+// Helper function to create clickable images of the video streams coming in.
+//
+function CreateVideoTag(){
+	var div = document.createElement('div');
+	var i = document.querySelectorAll('video').length;
+	div.className = String.fromCharCode(i +97);
+
+	div.addEventListener('click', function(){
+		// swap classNames
+		document.querySelector('.a').className = this.className;
+		this.className = 'a';
+	});
+
+	var video = document.createElement('video');
+	video.autoplay = true;
+	div.appendChild(video);
+
+	document.body.appendChild(div);
+
+	return video;
+}
+
+//
+
+
+</script>
+<audio>
+  <source src="ring.ogg" type="audio/ogg" />
+Your browser does not support the audio element.
+</audio>
