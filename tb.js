@@ -239,7 +239,7 @@
 
 		this.defaultEvents = function(){
 
-			var ctx = document.getCSSCanvasContext("2d", "squares", 150, 20);
+			var ctx = document.getCSSCanvasContext("2d", "videochat", 150, 20);
 
 			ctx.lineWidth=1;
 			ctx.fillStyle="#444444";
@@ -247,12 +247,24 @@
 			ctx.font="18px sans-serif";
 			ctx.fillText("Click to video chat", 0, 20);
 
-			this.el.style.background = '-webkit-canvas(squares) no-repeat center center';
+			this.el.style.background = '-webkit-canvas(videochat) no-repeat center center';
+	
+			this.el.style.setProperty('-webkit-transition',"-webkit-transform 1s");
+			this.el.style.transition = "transform 1s";
+
+			this.el.style.setProperty('-webkit-transform-style',"preserve-3d");
+			this.el.style.setProperty('transform-style',"preserve-3d");
+
+			this.el.style.setProperty('-webkit-transform',"rotateY(0deg)");
+			this.el.style.transform = "rotateY(0deg)";					
+
 			this.on('started', function(){
-				self.el.style.webkitTransition = "transform 0.3s";
-				self.el.style.webkitTransform = "scaleX(-1)";
-				self.el.style.transition = "transform 0.3s";
-				self.el.style.transform = "scaleX(-1)";
+				self.el.style.background = '-webkit-canvas(loading) no-repeat center center';
+				self.el.style.setProperty('-webkit-transform',"rotateY(180deg)");
+				self.el.style.transform = "rotateY(180deg)";
+				setTimeout(function(){
+					self.el.style.removeProperty('background');
+				},3e3);
 			});
 
 			this.el.addEventListener('click', function(e){
@@ -266,6 +278,18 @@
 
 		return this;
 	};
+
+
+	(function(){
+		try{
+			var ctx = document.getCSSCanvasContext("2d", "loading", 150, 20);
+			ctx.lineWidth=1;
+			ctx.fillStyle="#444444";
+			ctx.lineStyle="#000000";
+			ctx.font="18px sans-serif";
+			ctx.fillText("Loading Video", 0, 20);
+		}catch(e){};
+	})();
 
 
 	// initSession
@@ -348,7 +372,7 @@
 		// This is the massive Nut that holds it together
 		// But because its so ugly we are hiding it out of our code.
 		// This creates instances of a new PeerConnection
-		function PeerConnection(id){
+		function PeerConnection(id,data){
 
 			// Callback
 			var callback = function(candidate){
@@ -386,6 +410,7 @@
 				e.from = id;
 				e.url = window.URL.createObjectURL(e.stream);
 				vid = document.createElement('video');
+				vid.style.background = '-webkit-canvas(loading) no-repeat center center';
 				vid.src= e.url;
 				vid.autoplay = true;
 				e.video = vid;
@@ -406,16 +431,71 @@
 				pc.addStream(localStream);
 			});
 
+			// Is this an offer or an answer?
+			// No data is needed to make an offer
+			var offer = !data;
+
+			var config = {'has_audio':true, 'has_video':true};
+
+			// RTC Approach
+			if(RTCPeer){
+
+				// Making an offer?
+				if(offer){
+					pc.createOffer(function(session){
+						pc.setLocalDescription(session);
+						self.send("offer", {offer:session,to:id});
+					}, null, config);
+				}
+				// No, we're processing an offer to make an answer then
+				else{
+					// Set the remote offer information
+					pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+					pc.createAnswer(function(session){
+						pc.setLocalDescription(session);
+						self.send("answer", {answer:session,to:id});
+					}, null, config);
+				}
+			}
+
+			// Deprecated approach for Chrome 22
+			else{
+
+				if(offer){
+					var offer = pc.createOffer(config);
+					pc.setLocalDescription(pc.SDP_OFFER, offer);
+					// DISPATCH OFFER
+					self.send('offer',{
+						to : id,
+						sdp : offer.toSdp()
+					});
+					pc.startIce();
+				}
+				else{
+
+					pc.setRemoteDescription(pc.SDP_OFFER, new SessionDescription(data.sdp));
+					var answer = pc.createAnswer(pc.remoteDescription.toSdp(), config);
+					pc.setLocalDescription(pc.SDP_ANSWER, answer);
+
+					self.send('answer',{
+						to : data.from,
+						sdp : answer.toSdp()
+					});
+				}
+
+				pc.startIce();
+			}
+
 			return pc;
 		}
 
 		//
 		// Invite
-		this.invite = function(id){
+		this.offer = function(id){
 
 			if(!localStream){
 				this.one('mediaAdded', function(){
-					self.invite(id);
+					self.offer(id);
 				});
 				return this;
 			}
@@ -429,31 +509,7 @@
 			}
 
 			// Create a new PeerConnection
-			console.log("Requesting invite");
-			var pc = self.streams[id] = PeerConnection(id);
-
-			// Create Offer
-			if(RTCPeer){
-				pc.createOffer(function(sessionDescr){
-					pc.setLocalDescription(sessionDescr);
-					// Not sure about this
-					// ???????????????????
-					console.error("API IS BUGGY HERE");
-					console.error(sessionDescription);
-					self.send(sessionDescription);
-				}, null, {'has_audio':true, 'has_video':true});
-			}else{
-				var offer = pc.createOffer({'has_audio':true, 'has_video':true});
-				pc.setLocalDescription(pc.SDP_OFFER, offer);
-
-				// DISPATCH OFFER
-				self.send('invite',{
-					to : id,
-					sdp : offer.toSdp()
-				});
-
-				pc.startIce();
-			}
+			self.streams[id] = PeerConnection(id);
 
 			return this;
 		};
@@ -462,11 +518,11 @@
 		//
 		// Accept
 		//
-		this.accept = function(data){
+		this.answer = function(data){
 
 			if(!localStream){
 				this.one('mediaAdded', function(){
-					self.accept(data);
+					self.answer(data);
 				});
 				return this;
 			}
@@ -479,35 +535,9 @@
 				return;
 			}
 			
-
-			var pc = self.streams[data.from] = PeerConnection(data.from);
-
-			if(RTCPeer){
-				pc.setRemoteDescription(new RTCSessionDescription(data));
-
-				pc.createAnswer(function(sessionDescr){
-					pc.setLocalDescription(sessionDescr);
-					self.send(sessionDescription);
-				}, null, {'has_audio':true, 'has_video':true});
-			}
-			else{
-				pc.setRemoteDescription(pc.SDP_OFFER, new SessionDescription(data.sdp));
-
-				var offer = pc.remoteDescription;
-				var answer = pc.createAnswer(offer.toSdp(), {'has_audio':true, 'has_video':true});
-
-				pc.setLocalDescription(pc.SDP_ANSWER, answer);
-
-				self.send('accept',{
-					to : data.from,
-					sdp : answer.toSdp()
-				});
-
-				pc.startIce();
-			}
-
-			// Assign it to be collected by other things
-			self.streams[data.from] = pc;
+			// Make a Peer Connection
+			// And answer the offer
+			self.streams[data.from] = PeerConnection(data.from,data);
 
 			return this;
 		};
@@ -554,19 +584,19 @@
 			if("to" in data){
 				// The default action is to invite them to a peer connection
 				self.one(!!localStream || 'mediaAdded', function(){
-					self.invite(data.from);
+					self.offer(data.from);
 				});
 			}
 		});
 
 		// Step 2. Process invite
 		// Send accept headers
-		this.on('default:invite', function(data){
+		this.on('default:offer', function(data){
 
 			// Received a connectionCreated event
 			// Get their stream?
 			self.one(!!localStream || 'mediaAdded', function(){
-				self.accept(data);
+				self.answer(data);
 			});
 		});
 
@@ -575,16 +605,16 @@
 		//
 		// 3. process answer
 		// Once we sent back an answer we should
-		this.on('accept', function(data){
+		this.on('answer', function(data){
 
 			if(!(data.from in self.streams)){
 				// this endpoint should have sent a invite...?
-				console.error("Accept called but this peer connection doesn't exist");
+				console.error("Answer called but this peer connection doesn't exist");
 				return;
 			}
 
 			if(RTCPeer){
-				self.streams[data.from].setRemoteDescription(new RTCSessionDescription(data));
+				self.streams[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
 			}
 			else{
 				self.streams[data.from].setRemoteDescription(self.streams[data.from].SDP_ANSWER, new SessionDescription(data.sdp));

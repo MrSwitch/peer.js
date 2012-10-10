@@ -181,13 +181,13 @@ var session  = TB.initSession(window.location.hash).on({
 				// Once the users media has been added, 
 				// Lets start the call
 				// Invite the other party to a call
-				session.invite(event.from);
+				session.offer(event.from);
 			}));
 
 		});
 	},
-	// When we can an invite here's how we cope
-	invite : function(event){
+	// When we can an offer here's how we cope
+	offer : function(event){
 		// Stop Auto Accepting, although we call it later anyway
 		event.preventDefault();
 
@@ -197,7 +197,7 @@ var session  = TB.initSession(window.location.hash).on({
 		session.addMedia(myMedia.connect(function(){
 			document.querySelector('audio').pause();
 			video.parentNode.setAttribute('data-status', "connecting");
-			session.accept(event);
+			session.answer(event);
 		}));
 
 	},
