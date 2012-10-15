@@ -69,70 +69,206 @@ io.configure(function (){
 });
 
 /**/
+// Global objects
+var profiles = {}, 
+	pending = {},
+	recipients = {};
+
 // Create a new Client
-io.sockets.on('connection', function (socket, data) {
+io.sockets.on('connection', function (socket) {
+
+	var _group,
+		my_profiles = [],
+		my_contacts = [];
+
+	// Initiate the list of people we've contacted
+	recipients[socket.id] = [];
+
+	function send(to, data){
+		// Send
+		to = to || socket.id;
+
+		io.sockets.socket(to).send(JSON.stringify(data));
+		// Store recipient
+		// Save this recipient in the list of recipients
+		if(recipients[data.from].indexOf(to)===-1){
+			recipients[data.from].push(to);
+		}
+	}
 
 
-	socket.on('register', function(group){
+	socket.send(JSON.stringify({
+		type : 'init',
+		from : socket.id,
+		to : socket.id
+	}));
 
-		group = group||'';
-		
-		// Join Group
-		socket.join(group);
+	// join
+	socket.on('join', function(group){
 
-		// Broadcast to yourself that you have entered the room
-		socket.send(JSON.stringify({
-			type : 'init',
-			from : socket.id,
-			to : socket.id
-		}));
+		if(_group&&group!==_group){
+			socket.leave(_group);
+		}
 
-		console.log('New connection');
+		if(group){
+			// Join Group
+			console.log("Joined "+group);
+			socket.join(group);
 
-		// Listen to events
-		socket.on('message', function(data){
+			// Broadcast to yourself that you have joined a room
+			socket.send(JSON.stringify({
+				type : 'joined',
+				from : socket.id,
+				to : socket.id
+			}));
+		}
 
-			console.log('Message Recieved');
+		// Set Global
+		_group = group;
+	});
 
-			data = JSON.parse(data);
 
-			data.from = socket.id;
+	// Listen to events
+	socket.on('message', function(data){
 
-			console.log(data);
+		console.log('Message Recieved');
 
-			// How do we handle this message?
-			// Does the message contain a 'to' field?
-			if(data.to){
-				io.sockets.socket(data.to).send(JSON.stringify(data));
+		data = JSON.parse(data);
+
+		data.from = socket.id;
+
+		console.log(data);
+
+		// How do we handle this message?
+		// Does the message contain a 'to' field?
+		if(data.to){
+			var to = data.to;
+			delete data.to;
+
+			if(!(to instanceof Array)){
+				to = [to];
 			}
-			else{
-				socket.broadcast.to(group).send(JSON.stringify(data));
+			to.forEach(function(id){
+
+				// No ID?
+				if(!id){
+					return;
+				}
+
+				// Make a local copy
+				var _data = data;
+
+				// Does the too field contain an email?
+				if(id.match('@')){
+
+					// Show Original ID ref
+					_data.original_to = id;
+
+					// Look up the field
+					if(id in profiles){
+						id = profiles[id];
+					}
+					else {
+						// Store the message that we're sending to this user until they come online.
+						// 
+						if(!(id in pending)){
+							pending[id]=[];
+						}
+
+						pending[id].push(_data);
+
+						// Save the id of the user, so we can clean it up if you leave before they come online.
+						my_contacts.push(id);
+						return;
+					}
+				}
+
+				// Send data
+				_data.to = id;
+				send(id, _data);
+			});
+		}
+		else if(data.group){
+			socket.broadcast.to(data.group).send(JSON.stringify(data));
+		}
+	});
+
+
+	// Add personal identifying data,
+	// Typically this is one of
+	// `facebook_id`@facebook
+	// `windows_id`@windows
+	// `google_id`@google
+	// email@address.com
+	socket.on('me',function(data){
+		// Add data to the contacts array
+		if(!(data instanceof Array)){
+			data = [data];
+		}
+		data.forEach(function(ref){
+
+			profiles[ref] = socket.id;
+			my_profiles.push(ref);
+
+			// Is anyone listening for this user?
+			if(ref in pending){
+				// Loop through and deliver pending messages
+				pending[ref].forEach(function(data){
+					if(data){
+						// Send to self
+						send(socket.id, data);
+					}
+				});
+				// Delete
+				delete pending[ref];
+			}
+		})
+	});
+
+
+	socket.on('disconnect', function(){
+
+		// Loop through profiles
+		my_profiles.forEach(function(ref){
+			// remove from the current profile list
+			delete profiles[ref];
+		});
+
+		// Loop through contacts
+		my_contacts.forEach(function(ref){
+			// Remove the watch in the contacts list
+			console.log(pending);
+			if(pending[ref]){
+				pending[ref].forEach(function(data,i){
+					if(data&&data.from===socket.id){
+						pending[ref][i] = null;
+					}
+				});
+				// if there is none left, cleanup
+				if( pending[ref].filter(function(a){return !!a;}).length === 0 ){
+					delete pending[ref];
+				}
 			}
 		});
 
-		// Add personal identifying data
-		socket.on('identity',function(data){
-			// Data 
-			data = JSON.parse(data);
-
-		});
-
-		// Add watch for a users identity
-		// Once an identity is being watched it receives presence information for that user.
-		socket.on('watch', function(data){
-			// Add watch to the user list
-
-			// 
-		});
-
-
-		// Tell everyone when your disconnected
-		socket.on('disconnect', function(){
-			socket.broadcast.send(JSON.stringify({
+		// Broadcast disconnect to group
+		if(_group){
+			socket.broadcast.to(_group).send(JSON.stringify({
 				type : 'disconnect',
 				from : socket.id
 			}));
-		});
+		}
+
+		// Broadcast disconnect to anyone you've sent a message too.
+		if(recipients[socket.id].length>0){
+			recipients[socket.id].forEach(function(id){
+				send(id, {
+					type : 'disconnect',
+					from : socket.id
+				});
+			});
+			delete recipients[socket.id];
+		}
 	});
 
 });
