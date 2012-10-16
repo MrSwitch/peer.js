@@ -129,68 +129,74 @@ io.sockets.on('connection', function (socket) {
 
 
 	// Listen to events
-	socket.on('message', function(data){
+	socket.on('message', function(_data){
 
 		console.log('Message Recieved');
+		console.log(_data);
 
-		data = JSON.parse(data);
+		_data = JSON.parse(_data);
 
-		data.from = socket.id;
+		if(!(_data instanceof Array)){
+			_data = [_data];
+		}
 
-		console.log(data);
+		_data.forEach(function(data){
 
-		// How do we handle this message?
-		// Does the message contain a 'to' field?
-		if(data.to){
-			var to = data.to;
-			delete data.to;
+			data.from = socket.id;
 
-			if(!(to instanceof Array)){
-				to = [to];
-			}
-			to.forEach(function(id){
+			// How do we handle this message?
+			// Does the message contain a 'to' field?
+			if(data.to){
+				var to = data.to;
+				delete data.to;
 
-				// No ID?
-				if(!id){
-					return;
+				if(!(to instanceof Array)){
+					to = [to];
 				}
+				to.forEach(function(id){
 
-				// Make a local copy
-				var _data = data;
-
-				// Does the too field contain an email?
-				if(id.match('@')){
-
-					// Show Original ID ref
-					_data.original_to = id;
-
-					// Look up the field
-					if(id in profiles){
-						id = profiles[id];
-					}
-					else {
-						// Store the message that we're sending to this user until they come online.
-						// 
-						if(!(id in pending)){
-							pending[id]=[];
-						}
-
-						pending[id].push(_data);
-
-						// Save the id of the user, so we can clean it up if you leave before they come online.
-						my_contacts.push(id);
+					// No ID?
+					if(!id){
 						return;
 					}
-				}
 
-				// Send data
-				_data.to = id;
-				send(id, _data);
-			});
-		}
-		else if(data.group){
-			socket.broadcast.to(data.group).send(JSON.stringify(data));
-		}
+					// Make a local copy
+					var _data = data;
+
+					// Does the too field contain an email?
+					if(id.match('@')){
+
+						// Show Original ID ref
+						_data.original_to = id;
+
+						// Look up the field
+						if(id in profiles){
+							id = profiles[id];
+						}
+						else {
+							// Store the message that we're sending to this user until they come online.
+							// 
+							if(!(id in pending)){
+								pending[id]=[];
+							}
+
+							pending[id].push(_data);
+
+							// Save the id of the user, so we can clean it up if you leave before they come online.
+							my_contacts.push(id);
+							return;
+						}
+					}
+
+					// Send data
+					_data.to = id;
+					send(id, _data);
+				});
+			}
+			else if(data.group){
+				socket.broadcast.to(data.group).send(JSON.stringify(data));
+			}
+		});
 	});
 
 
@@ -220,7 +226,7 @@ io.sockets.on('connection', function (socket) {
 					}
 				});
 				// Delete
-				delete pending[ref];
+				//delete pending[ref];
 			}
 		})
 	});
@@ -230,14 +236,16 @@ io.sockets.on('connection', function (socket) {
 
 		// Loop through profiles
 		my_profiles.forEach(function(ref){
-			// remove from the current profile list
-			delete profiles[ref];
+			// If this was the last socket to define this then
+			if(profiles[ref]===socket.id){
+				// remove from the current profile list
+				delete profiles[ref];
+			}
 		});
 
 		// Loop through contacts
 		my_contacts.forEach(function(ref){
 			// Remove the watch in the contacts list
-			console.log(pending);
 			if(pending[ref]){
 				pending[ref].forEach(function(data,i){
 					if(data&&data.from===socket.id){
