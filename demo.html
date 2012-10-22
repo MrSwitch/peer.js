@@ -4,6 +4,8 @@
 <!-- use the latest IE browser always, and optionally use chrome frame if installed -->
 <meta http-equiv="x-ua-compatible" content="IE=edge,chrome=1" />
 
+<script src="/_packages/track.js"></script>
+
 <script src="tb.js"></script>
 <style>
 
@@ -147,7 +149,7 @@ var myMedia = TB.LocalMedia(myvideo).on({
 });
 
 
-var session  = TB.initSession(window.location.hash).on({
+var session  = TB.initSession().on({
 	init : function(event){
 	},
 
@@ -236,7 +238,7 @@ var session  = TB.initSession(window.location.hash).on({
 			}
 		}
 	}
-}).connect();
+}).connect(window.location.hash);
 
 
 

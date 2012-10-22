@@ -61,6 +61,7 @@
 	function Events(){
 
 		this.events = {};
+		this.callback = [];
 
 		// Return
 		this.on = function(name, callback){
@@ -102,7 +103,7 @@
 		}		
 
 		// Trigger Events defined on the publisher widget
-		this.trigger = function(name,evt){
+		this.trigger = function(name,evt,callback){
 				if(!name){
 					throw name;
 				}
@@ -117,7 +118,7 @@
 				if(this.events[name]){
 					this.events[name].forEach(function(o,i){
 						if(o){
-							o(evt);
+							o(evt,callback);
 						}
 					});
 				}
@@ -127,7 +128,7 @@
 					console.log('Triggered: default:' + name);
 					this.events["default:"+name].forEach(function(o,i){
 						if(o){
-							o(evt);
+							o(evt,callback);
 						}
 					});
 				}
@@ -239,27 +240,27 @@
 
 		this.defaultEvents = function(){
 
-			var ctx = document.getCSSCanvasContext("2d", "videochat", 150, 20);
+			var ctx = document.getCSSCanvasContext("2d", "videochat", 100, 38);
 
 			ctx.lineWidth=1;
 			ctx.fillStyle="#444444";
 			ctx.lineStyle="#000000";
 			ctx.font="18px sans-serif";
-			ctx.fillText("Click to video chat", 0, 20);
+			ctx.fillText("start camera", 0, 16);
+			ctx.fillText("[click]", 30, 35);
 
-			this.el.style.background = '-webkit-canvas(videochat) no-repeat center center';
-	
-			this.el.style.setProperty('-webkit-transition',"-webkit-transform 1s");
-			this.el.style.transition = "transform 1s";
-
-			this.el.style.setProperty('-webkit-transform-style',"preserve-3d");
-			this.el.style.setProperty('transform-style',"preserve-3d");
-
-			this.el.style.setProperty('-webkit-transform',"rotateY(0deg)");
-			this.el.style.transform = "rotateY(0deg)";					
+			this.el.style.cssText = 'background-image: -webkit-canvas(videochat);'
+				+'-webkit-transition: -webkit-transform 1s;'
+				+'-webkit-transform-style: preserve-3d;'
+				+'-webkit-transform: rotateY(0deg);'
+				+'transition: transform 1s;'
+				+'transform-style: preserve-3d;'
+				+'transform: rotateY(0deg);'
+				+'background-position: center center;'
+				+'background-repeat: no-repeat no-repeat;';
 
 			this.on('started', function(){
-				self.el.style.background = '-webkit-canvas(loading) no-repeat center center';
+				self.el.style.backgroundImage = '-webkit-canvas(loading)';
 				self.el.style.setProperty('-webkit-transform',"rotateY(180deg)");
 				self.el.style.transform = "rotateY(180deg)";
 				setTimeout(function(){
@@ -294,19 +295,21 @@
 
 	// initSession
 	// Create a New Peer Session
-	TB.initSession = function(sessionId, apiKey, token){
+	TB.initSession = function(){
+		var _group;
 
 		// Lets force a new instance
 		if(!(this instanceof TB.initSession)){
-			return new TB.initSession(sessionId, apiKey, token);
+			return new TB.initSession();
 		}
 
 		// Apply on,trigger
 		Events.apply(this, arguments);
 
 		
-		var socket,
-			localStream;
+		var socket;
+
+		this.localStream = null;
 
 		// We dont need to make these publicly avaliable
 		// but what the heck, maybe its useful
@@ -314,31 +317,95 @@
 
 		var self = this;
 
-		// Add listeners for new messages
-		this.connect = function(video){
+		// Initiate SocketIO
+		Queue.on(typeof(io)!=='undefined'||'loaded', function(){
+			// Given a video tag
+			// Broadcast to all parties the new stream
+			self.socket = io.connect( ws );
 
-			Queue.on(typeof(io)!=='undefined'||'loaded', function(){
-				// Given a video tag
-				// Broadcast to all parties the new stream
-				self.socket = io.connect( ws );
-				self.socket.emit('register', sessionId );
+			// Define an onload handler
+			self.socket.on('message', function(data){
+				console.info("ws// Received Message " + data);
 
-				// Define an onload handler
-				self.socket.on('message', function(data){
-					console.info("ws// Received Message " + data);
+				data = JSON.parse(data);
+				var type = data.type;
+				try{
+					delete data.type;
+				}catch(e){}
 
-					data = JSON.parse(data);
-					var type = data.type;
-					try{
-						delete data.type;
-					}catch(e){}
+				if("callback_response" in data){
+					var i = data.callback_response;
+					delete data.callback_response;
+					self.callback[i].call(self, data);
+					return;
+				}
 
-					self.trigger(type,data);
+				self.trigger(type, data, function(o){
+					// if callback was defined, lets send it back
+					if("callback" in data){
+						o.to = data.from;
+						o.callback_response = data.callback;
+						self.socket.send(JSON.stringify(o));
+					}
 				});
 			});
+		});
+
+		function emit(name,data){
+			self.on(!!self.id||'init', function(){
+				self.socket.emit(name, data);
+			});
+		}
+
+		// Connect
+		// This adds a user to a session, once in a session users can chat and share video with others in the same session.
+		// Sends a "join" request and the name of the room to join to the server and will receive a "joined" response.
+		// If the user was already in a session, or they want to leave the session by defining the session as `false` then..
+		// The disconnect message is sent by the server
+		this.connect = function(group){
+
+			// Lets disconnect all peer connections we currently have
+			if(_group&&_group!==group){
+
+				// Tell everyone in the old group your leaving.
+				self.send('disconnect',{
+					group : _group
+				});
+ 	
+				// Now trigger stream disconnects locally
+				for(var x in self.streams){if(self.streams.hasOwnProperty(x)){
+					this.trigger('disconnect', {from:x});
+				}}
+			}
+
+			// Join group / leave group
+			// This leaves the old group
+			emit('join',group);
+
+			_group = group;
 
 			return this;
 		};
+
+
+		//
+		// Add and watch personal identifications
+		//
+		this.me = function(data){
+			console.log("me", data);
+			if(!(data instanceof Array)){
+				if(typeof(data)==='string'){
+					data = [data];
+				}
+				else{
+					console.error("Me data is neither an array or a string");
+				}
+			}
+			emit('me', data );
+
+			return this;
+		}
+
 
 		// Publish a new LocalMedia object
 		this.addMedia = function(media){
@@ -350,7 +417,7 @@
 			// Given a Media object, aka a video stream
 			// Add it to the run or watch list
 			media.one( !!media.stream || 'started', function(){
-				localStream = media.stream;
+				self.localStream = media.stream;
 				// Socket
 				self.trigger('mediaAdded', media);
 			});
@@ -359,11 +426,41 @@
 		};
 
 		// Send message
-		this.send = function(name, data){
-			data = data || {};
-			data.type = name;
-			console.log("Sending: "+ data.type);
-			self.socket.send(JSON.stringify(data));
+		this.send = function(name, data, callback){
+
+			// Count
+			var callback_count = this.callback.length;
+
+			// Array?
+			if(!(data instanceof Array)){
+				data = [data];
+			}
+
+			for(var i=0;i<data.length;i++){
+				data[i] = data[i] || {};
+				data[i].type = name;
+				if(callback){
+					data[i].callback = callback_count;
+				}
+
+				// Add group
+				if(_group&&!data[i].to){
+					data[i].group = _group;
+				}
+			}
+
+			// Add callback
+			if(callback){
+				this.callback.push(callback);
+			}
+
+			console.log("Sending: "+ name);
+			console.log(data);
+
+			this.on(!!this.id||'init', function(){
+				self.socket.send(JSON.stringify(data));
+			});
+
 			return this;
 		};
 
@@ -426,9 +523,9 @@
 				}
 			});
 
-			self.on(!!localStream || 'mediaAdded', function(){
+			self.on(!!self.localStream || 'mediaAdded', function(){
 				console.log("adding media");
-				pc.addStream(localStream);
+				pc.addStream(self.localStream);
 			});
 
 			// Is this an offer or an answer?
@@ -493,7 +590,7 @@
 		// Invite
 		this.offer = function(id){
 
-			if(!localStream){
+			if(!self.localStream){
 				this.one('mediaAdded', function(){
 					self.offer(id);
 				});
@@ -520,7 +617,7 @@
 		//
 		this.answer = function(data){
 
-			if(!localStream){
+			if(!self.localStream){
 				this.one('mediaAdded', function(){
 					self.answer(data);
 				});
@@ -545,27 +642,29 @@
 
 
 		// EVENTS
+		// The "default:" steps maybe cancelled using e.preventDefault()
+
 
 		// Step A
-		// When your client first connects you recieve a sessionConnected Event
+		// When your client first establises a connection with the server we get an init Event
 		this.on('init', function(data){
 			// Assign local id
 			self.id = data.from;
 		});
 
 		// Step A:default
-		// The default steps maybe cancelled using e.preventDefault()
-		this.on('default:init', function(data){
+		// After calling session.connect(), a "joined" event is returned.
+		// Send the 'connect' event to everyone in the session.
+		this.on('default:joined', function(data){
 			// Tell everyone we're online
 			self.send('connect');
 		});
 
 		// Step B
-		// Respond back directly to each client with another connect message
-		// When someone else connects we get a stream created event from them
+		// Send a response back saying. Hey nice to meet you, i am connected too.
 		this.on('connect', function(data){
 
-			// Obviously we dont want to process this if we sent it.
+			// Obviously we dont want to resend this after the second response is a direct message
 			if(!("to" in data)){
 				// send one back so that everyone knows everyone else
 				self.send('connect',{
@@ -583,7 +682,7 @@
 			// If the connect response has been returned 
 			if("to" in data){
 				// The default action is to invite them to a peer connection
-				self.one(!!localStream || 'mediaAdded', function(){
+				self.one(!!self.localStream || 'mediaAdded', function(){
 					self.offer(data.from);
 				});
 			}
@@ -595,7 +694,7 @@
 
 			// Received a connectionCreated event
 			// Get their stream?
-			self.one(!!localStream || 'mediaAdded', function(){
+			self.one(!!self.localStream || 'mediaAdded', function(){
 				self.answer(data);
 			});
 		});
@@ -646,18 +745,29 @@
 		// When someone disconnects you get this fired
 		this.on('disconnect', function(data){
 			if((data.from in self.streams) && ("close" in self.streams[data.from])){
+				
 				// create the event
 				var evt = document.createEvent('Event');
+
 				// define that the event name is `build`
 				evt.initEvent('removestream', true, true);
 				self.streams[data.from].dispatchEvent(evt);
+
+				// Cancel the peer connection stream
+				session.streams[data.from].close();
+
+				// Remove the stream
+				delete session.streams[data.from];
+
 				//self.streams[data.from].close();
 			}
 		});
 
 
 		window.onbeforeunload = function(){
-			self.send('disconnect');
+			if(self.socket){
+				self.socket.disconnect();
+			}
 		};
 
 
