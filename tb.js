@@ -775,6 +775,6 @@
 	};
 
 	// Does the browser support everything?
-	TB.supported = navigator.getUserMedia && (window.webkitPeerConnection00 || window.webkitPeerConnection || window.webkitDeprecatedPeerConnection);
+	TB.supported = !!(navigator.getUserMedia && (window.webkitRTCPeerConnection || window.webkitPeerConnection00 || window.webkitPeerConnection || window.webkitDeprecatedPeerConnection));
 
 })(document, window);
