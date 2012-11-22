@@ -3,10 +3,10 @@
 <link rel="stylesheet" href="/_packages/document.css" />
 <script src="/_packages/document.js"></script>
 <header>
-	<h1>WebRTC video chat</h1>
+	<h1>PeerJS - WebRTC video chat</h1>
 </header>
 <blockquote>
-	This is a little clientside script i wrote to make it easier to build a chat room using the upcoming <a href="http://www.w3.org/TR/webrtc/">WebRTC's PeerConnection API</a>. The PeerConnection API makes it possible to send data, video etc from one user-agent to another without the need for it going through a server. The demo here relies on a simple nodejs relay server to marry two user-agents.
+	PeerJS is a little clientside script i wrote to make it easier to build a chat room using the upcoming <a href="http://www.w3.org/TR/webrtc/">WebRTC's PeerConnection API</a>. The PeerConnection API proposes to be able to send data, video etc from one user-agent to another without the need for it going through a server. The demo here relies on a simple nodejs relay server to marry two user-agents.
 </blockquote>
 <div class="demo">
 	<video id="myvideo"></video>
@@ -47,15 +47,15 @@
 	}
 </style>
 <h2>Demo Code</h2>
-<p>The above demo takes just a few steps to implement. Firstly embed the script</p>
-<script class="pre" src="tb.js"></script>
+<p>The above demo takes just a few steps to implement. Firstly embed the Peer.JS script</p>
+<script class="pre" src="peer.js"></script>
 <p>Next, create a unique id with Math.random() for the chat room, you could hard code this if you like, but anyway, i'm generating it like so...</p>
 <script class="pre">
 window.location.hash = (window.location.hash || parseInt(Math.random()*1e5,16).toString(16));
 </script>
-<p><b>connect with video</b>. Call the library TB and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media steams from other people in the same chat room.</p>
+<p><b>connect with video</b>. Call the library Peer and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media steams from other people in the same chat room.</p>
 <script class="pre">
-var session = TB.initSession().addMedia('myvideo').connect(window.location.hash).on('media', function(e){
+var session = Peer.initSession().addMedia('myvideo').connect(window.location.hash).on('media', function(e){
 	document.querySelector('div.demo').appendChild(e.video);
 });
 </script>
@@ -80,7 +80,7 @@ link.href = window.location.href;
 </script>
 <p>[Optionally]. If the user-agent doesn't support WebRTC then lets so something</p>
 <script class="pre">
-if(!TB.supported){
+if(!Peer.supported){
 	document.querySelector('.demo').innerHTML = "This demo is not supported in your browser, for more information see http://www.webrtc.org/running-the-demos";
 }
 </script>

@@ -1,15 +1,15 @@
 //
-//
+// PeerJS
 // WebRTC Client Controler
 // @author Andrew Dodson (@mr_switch)
-// @since July added the  
+// @since July
 //
 (function(document, window){
 
 	// Switch between development and production
 	var host, local = false;
 	if(window.location.hostname.match(/local/)){
-		var local = true;
+		local = true;
 		host = window.location.hostname + ':5000';
 		console.log("This is running on a local environment and automatically assumes you have http://github.com/MrSwitch/messaging.io running on port 5000");
 	}
@@ -30,7 +30,7 @@
 			if (this.readyState == 'complete') {
 				Queue.trigger('loaded');
 			}
-		}
+		};
 		script.onload= function(){
 			Queue.trigger('loaded');
 		};
@@ -43,18 +43,14 @@
 	// Define the location  of the socket IO server
 	var ws = 'ws://' + (host ? host : window.location.hostname);
 
-
 	// Does this browser support WebRTC?
-	navigator.getUserMedia || (navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
-
+	if(!navigator.getUserMedia){
+		navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+	}
 	// URL?
-	window.URL || (window.URL = window.webkitURL);
-
-	// RTC Peer
-	// I think this is a new standard coming in a beta Chrome
-	var RTCPeer = true;
-
-
+	if(!window.URL){
+		(window.URL = window.webkitURL);
+	}
 
 	// EVENTS
 	// Extend the function we do have.
@@ -85,7 +81,9 @@
 
 				if(callback){
 					// Set the listeners if its undefined
-					this.events[name] || (this.events[name] = []);
+					if(!this.events[name]){
+						this.events[name] = [];
+					}
 
 					// Append the new callback to the listeners
 					this.events[name].push(callback);
@@ -100,7 +98,7 @@
 		this.one = function(name, callback){
 			var self = this;
 			this.on(name, function once(){ self.off(name,once); callback.apply(this, arguments);} );
-		}		
+		};
 
 		// Trigger Events defined on the publisher widget
 		this.trigger = function(name,evt,callback){
@@ -141,20 +139,19 @@
 			if(this.events[name]){
 				for( var i=0; i< this.events[name].length; i++){
 					if(this.events[name][i] === callback){
-						this.events[name][i] === null;
+						this.events[name][i] = null;
 					}
 				}
 			}
-		}
-	};
+		};
+	}
 
+	Peer = {};
 
-	TB = {};
+	Peer.localMedia = function( rplElm ){
 
-	TB.LocalMedia = function( rplElm ){
-
-		if(!(this instanceof TB.LocalMedia)){
-			return new TB.LocalMedia(rplElm);
+		if(!(this instanceof Peer.localMedia)){
+			return new Peer.localMedia(rplElm);
 		}
 
 		Events.apply(this, arguments);
@@ -231,12 +228,12 @@
 				try{
 					navigator.getUserMedia('audio,video', _success, _failure);
 				}
-				catch(e){
+				catch(_e){
 					_failure();
 				}
 			}
 			return this;
-		}
+		};
 
 		this.defaultEvents = function(){
 
@@ -270,12 +267,12 @@
 
 			this.el.addEventListener('click', function(e){
 				if(!self.stream){
-					self.connect();		
+					self.connect();
 				}
 			});
 
 			return this;
-		}
+		};
 
 		return this;
 	};
@@ -289,18 +286,18 @@
 			ctx.lineStyle="#000000";
 			ctx.font="18px sans-serif";
 			ctx.fillText("Loading Video", 0, 20);
-		}catch(e){};
+		}catch(e){}
 	})();
 
 
 	// initSession
 	// Create a New Peer Session
-	TB.initSession = function(){
+	Peer.initSession = function(){
 		var _group;
 
 		// Lets force a new instance
-		if(!(this instanceof TB.initSession)){
-			return new TB.initSession();
+		if(!(this instanceof Peer.initSession)){
+			return new Peer.initSession();
 		}
 
 		// Apply on,trigger
@@ -371,7 +368,7 @@
 				self.send('disconnect',{
 					group : _group
 				});
- 	
+
 				// Now trigger stream disconnects locally
 				for(var x in self.streams){if(self.streams.hasOwnProperty(x)){
 					this.trigger('disconnect', {from:x});
@@ -404,14 +401,14 @@
 			emit('me', data );
 
 			return this;
-		}
+		};
 
 
-		// Publish a new LocalMedia object
+		// Publish a new localMedia object
 		this.addMedia = function(media){
 
 			if((typeof(media)==='string')|| (media instanceof Element)){
-				media = TB.LocalMedia(media).defaultEvents().connect();
+				media = Peer.localMedia(media).defaultEvents().connect();
 			}
 
 			// Given a Media object, aka a video stream
@@ -477,29 +474,24 @@
 					return;
 				}
 				self.send('candidate',{
-					label: candidate.label||candidate.sdpMLineIndex, 
+					label: candidate.label||candidate.sdpMLineIndex,
 					candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate,
 					to : id
 				});
 			};
 
 			// Peer Connection
-			var pc, 
+			var pc,
 				pc_config = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]},
-	 			stun = local?null:"STUN stun.l.google.com:19302";
+				stun = local ? null : "STUN stun.l.google.com:19302";
 			try{
 				pc = new webkitRTCPeerConnection(pc_config);
 				pc.onicecandidate = function(e){
 					callback(e.candidate);
 				};
 			}catch(e){
-				try {
-					RTCPeer = false;
-					pc = new webkitPeerConnection00(stun, callback);
-				} catch (e) {
-					console.error("Failed to create PeerConnection, exception: " + e.message);
-					return;
-				}
+				console.error("Failed to create PeerConnection, exception: " + e.message);
+				return;
 			}
 
 			var vid = null;
@@ -534,53 +526,21 @@
 
 			var config = {'has_audio':true, 'has_video':true};
 
-			// RTC Approach
-			if(RTCPeer){
-
-				// Making an offer?
-				if(offer){
-					pc.createOffer(function(session){
-						pc.setLocalDescription(session);
-						self.send("offer", {offer:session,to:id});
-					}, null, config);
-				}
-				// No, we're processing an offer to make an answer then
-				else{
-					// Set the remote offer information
-					pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-					pc.createAnswer(function(session){
-						pc.setLocalDescription(session);
-						self.send("answer", {answer:session,to:id});
-					}, null, config);
-				}
+			// Making an offer?
+			if(offer){
+				pc.createOffer(function(session){
+					pc.setLocalDescription(session);
+					self.send("offer", {offer:session,to:id});
+				}, null, config);
 			}
-
-			// Deprecated approach for Chrome 22
+			// No, we're processing an offer to make an answer then
 			else{
-
-				if(offer){
-					var offer = pc.createOffer(config);
-					pc.setLocalDescription(pc.SDP_OFFER, offer);
-					// DISPATCH OFFER
-					self.send('offer',{
-						to : id,
-						sdp : offer.toSdp()
-					});
-					pc.startIce();
-				}
-				else{
-
-					pc.setRemoteDescription(pc.SDP_OFFER, new SessionDescription(data.sdp));
-					var answer = pc.createAnswer(pc.remoteDescription.toSdp(), config);
-					pc.setLocalDescription(pc.SDP_ANSWER, answer);
-
-					self.send('answer',{
-						to : data.from,
-						sdp : answer.toSdp()
-					});
-				}
-
-				pc.startIce();
+				// Set the remote offer information
+				pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+				pc.createAnswer(function(session){
+					pc.setLocalDescription(session);
+					self.send("answer", {answer:session,to:id});
+				}, null, config);
 			}
 
 			return pc;
@@ -679,7 +639,7 @@
 		// Step 1
 		// Send invitation out
 		this.on('default:connect', function(data){
-			// If the connect response has been returned 
+			// If the connect response has been returned
 			if("to" in data){
 				// The default action is to invite them to a peer connection
 				self.one(!!self.localStream || 'mediaAdded', function(){
@@ -712,12 +672,7 @@
 				return;
 			}
 
-			if(RTCPeer){
-				self.streams[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
-			}
-			else{
-				self.streams[data.from].setRemoteDescription(self.streams[data.from].SDP_ANSWER, new SessionDescription(data.sdp));
-			}
+			self.streams[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
 		});
 
 
@@ -729,17 +684,11 @@
 				return;
 			}
 
-			if(RTCPeer){
-				var candidate = new RTCIceCandidate({
-					sdpMLineIndex:data.label,
-					candidate:data.candidate
-				});
-				self.streams[data.from].addIceCandidate(candidate);
-			}
-			else{
-				var candidate = new IceCandidate(data.label, data.candidate);
-				self.streams[data.from].processIceMessage(candidate);
-			}
+			var candidate = new RTCIceCandidate({
+				sdpMLineIndex:data.label,
+				candidate:data.candidate
+			});
+			self.streams[data.from].addIceCandidate(candidate);
 		});
 
 		// When someone disconnects you get this fired
@@ -775,6 +724,6 @@
 	};
 
 	// Does the browser support everything?
-	TB.supported = !!(navigator.getUserMedia && (window.webkitRTCPeerConnection || window.webkitPeerConnection00 || window.webkitPeerConnection || window.webkitDeprecatedPeerConnection));
+	Peer.supported = !!(navigator.getUserMedia && window.webkitRTCPeerConnection);
 
 })(document, window);
