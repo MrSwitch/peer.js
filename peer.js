@@ -524,7 +524,7 @@
 			// No data is needed to make an offer
 			var offer = !data;
 
-			var config = {'has_audio':true, 'has_video':true};
+			var config = null;//{'has_audio':true, 'has_video':true};
 
 			// Making an offer?
 			if(offer){
