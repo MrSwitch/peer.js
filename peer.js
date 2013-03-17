@@ -8,10 +8,10 @@
 
 	// Switch between development and production
 	var host, local = false;
-	if(window.location.hostname.match(/local/)){
+	if(window.location.hostname.match(/^(local|192\.168\.)/)){
 		local = true;
 		host = window.location.hostname + ':5000';
-		console.log("This is running on a local environment and automatically assumes you have http://github.com/MrSwitch/messaging.io running on port 5000");
+		console.log("This is running on a local environment and automatically assumes you have http://github.com/MrSwitch/peer-server.js running on port 5000");
 	}
 	else{
 		// Path to the PeerJS server
@@ -54,6 +54,10 @@
 		window.PeerConnection = window.PeerConnection || window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
 	}
 
+	// Fix FF issue
+	if(window.mozRTCSessionDescription){
+		RTCSessionDescription = window.mozRTCSessionDescription;
+	}
 
 
 	//
@@ -650,8 +654,8 @@
 					evt.initEvent('removestream', true, true);
 					self.streams[data.from].dispatchEvent(evt);
 				}
-				else{
-					self.streams[data.from].onremovestream();
+				else if(self.streams[data.from].onremovestream){
+					//self.streams[data.from].onremovestream();
 				}
 
 				// Cancel the peer connection stream
