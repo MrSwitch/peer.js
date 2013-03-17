@@ -21,7 +21,6 @@
 	// An internal Queue for delaying the load
 	var Queue = new Events();
 
-
 	// Load SocketIO if it doesn't exist
 	if(typeof(io)==='undefined'){
 		var script = document.createElement('script');
@@ -45,108 +44,37 @@
 
 	// Does this browser support WebRTC?
 	if(!navigator.getUserMedia){
-		navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+		navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
 	}
 	// URL?
 	if(!window.URL){
-		(window.URL = window.webkitURL);
+		window.URL = window.webkitURL || window.msURL || window.mozURL || window.oURL;
+	}
+	if(!window.RTCPeerConnection){
+		window.RTCPeerConnection = window.PeerConnection || window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
 	}
 
-	// EVENTS
-	// Extend the function we do have.
-	function Events(){
 
-		this.events = {};
-		this.callback = [];
 
-		// Return
-		this.on = function(name, callback){
-
-			// If there is no name
-			if(name===true){
-				callback();
-			}
-			else if(typeof(name)==='object'){
-				for(var x in name){
-					this.on(x, name[x]);
-				}
-			}
-			else if (name.indexOf(',')>-1){
-				for(var i=0,a=name.split(',');i<a.length;i++){
-					this.on(a[i],callback);
-				}
-			}
-			else {
-				console.log('ATTACHED: ' + name);
-
-				if(callback){
-					// Set the listeners if its undefined
-					if(!this.events[name]){
-						this.events[name] = [];
-					}
-
-					// Append the new callback to the listeners
-					this.events[name].push(callback);
-				}
-			}
-
-			return this;
-		};
-
-		// One
-		// One is the same as On, but events are only fired once and must be reestablished afterwards
-		this.one = function(name, callback){
-			var self = this;
-			this.on(name, function once(){ self.off(name,once); callback.apply(this, arguments);} );
-		};
-
-		// Trigger Events defined on the publisher widget
-		this.trigger = function(name,evt,callback){
-				if(!name){
-					throw name;
-				}
-				var preventDefault;
-				// define prevent default
-				evt = evt || {};
-				evt.preventDefault = function(){
-					preventDefault = true;
-				};
-
-				console.log('Triggered: ' + name);
-				if(this.events[name]){
-					this.events[name].forEach(function(o,i){
-						if(o){
-							o(evt,callback);
-						}
-					});
-				}
-				
-				// Defaults
-				if(!preventDefault && "default:"+name in this.events){
-					console.log('Triggered: default:' + name);
-					this.events["default:"+name].forEach(function(o,i){
-						if(o){
-							o(evt,callback);
-						}
-					});
-				}
-
-				return this;
-		};
-
-		// Remove a callback
-		this.off = function(name, callback){
-			if(this.events[name]){
-				for( var i=0; i< this.events[name].length; i++){
-					if(this.events[name][i] === callback){
-						this.events[name][i] = null;
-					}
-				}
-			}
-		};
-	}
-
+	//
+	// Build Peer Object
+	//
 	Peer = {};
+
+	Peer.stun_server = "stun:stun.l.google.com:19302";
+
+	Peer.dataChannelSupported = (function(){
+		try{
+			// raises exception if createDataChannel is not supported
+			var pc = new RTCPeerConnection(Peer.stun_server, {optional: {RtpDataChannels: true} });
+			var channel = pc.createDataChannel('supportCheck', {reliable: false});
+			channel.close();
+			return true;
+		} catch(e) {
+			console.log(e);
+			return false;
+		}
+	})();
 
 	Peer.localMedia = function( rplElm ){
 
@@ -186,6 +114,9 @@
 
 			// Attach the stream to the UI
 			self.el.src = URL ? URL.createObjectURL(stream) : stream;
+
+			// Autoplay isn't working in FF, so set it here
+			self.el.play();
 
 			// Save stream to element
 			self.stream = stream;
@@ -237,14 +168,15 @@
 
 		this.defaultEvents = function(){
 
-			var ctx = document.getCSSCanvasContext("2d", "videochat", 100, 38);
-
-			ctx.lineWidth=1;
-			ctx.fillStyle="#444444";
-			ctx.lineStyle="#000000";
-			ctx.font="18px sans-serif";
-			ctx.fillText("start camera", 0, 16);
-			ctx.fillText("[click]", 30, 35);
+			if(document.getCSSCanvasContext){
+				var ctx = document.getCSSCanvasContext("2d", "videochat", 100, 38);
+				ctx.lineWidth=1;
+				ctx.fillStyle="#444444";
+				ctx.lineStyle="#000000";
+				ctx.font="18px sans-serif";
+				ctx.fillText("start camera", 0, 16);
+				ctx.fillText("[click]", 30, 35);
+			}
 
 			this.el.style.cssText = 'background-image: -webkit-canvas(videochat);'
 				+'-webkit-transition: -webkit-transform 1s;'
@@ -279,14 +211,14 @@
 
 
 	(function(){
-		try{
+		if(document.getCSSCanvasContext){
 			var ctx = document.getCSSCanvasContext("2d", "loading", 150, 20);
 			ctx.lineWidth=1;
 			ctx.fillStyle="#444444";
 			ctx.lineStyle="#000000";
 			ctx.font="18px sans-serif";
 			ctx.fillText("Loading Video", 0, 20);
-		}catch(e){}
+		}
 	})();
 
 
@@ -322,7 +254,7 @@
 
 			// Define an onload handler
 			self.socket.on('message', function(data){
-				console.info("ws// Received Message " + data);
+				console.info("Event:Received Message " + data);
 
 				data = JSON.parse(data);
 				var type = data.type;
@@ -465,7 +397,7 @@
 		// Peer Connection
 		// This is the massive Nut that holds it together
 		// But because its so ugly we are hiding it out of our code.
-		// This creates instances of a new PeerConnection
+		// This creates instances of a new RTCPeerConnection
 		function PeerConnection(id,data){
 
 			// Callback
@@ -482,10 +414,10 @@
 
 			// Peer Connection
 			var pc,
-				pc_config = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]},
-				stun = local ? null : "STUN stun.l.google.com:19302";
+				pc_config = {"iceServers": [{"url": Peer.stun_server}]};
+//				stun = local ? null : Peer.stun_server;
 			try{
-				pc = new webkitRTCPeerConnection(pc_config);
+				pc = new RTCPeerConnection(pc_config);
 				pc.onicecandidate = function(e){
 					callback(e.candidate);
 				};
@@ -495,7 +427,9 @@
 			}
 
 			var vid = null;
-			pc.addEventListener("addstream", function(e){
+			//pc.addEventListener("addstream", works in Chrome
+			//pc.onaddstream works in FF and Chrome
+			pc.onaddstream = function(e){
 				e.from = id;
 				e.url = window.URL.createObjectURL(e.stream);
 				vid = document.createElement('video');
@@ -504,19 +438,25 @@
 				vid.autoplay = true;
 				e.video = vid;
 				self.trigger('media', e);
-			}, false);
+			};
 
-
-			pc.addEventListener("removestream", function(e){
+			// pc.addEventListener("removestream", works in Chrome
+			// pc.onremovestream works in Chrome and FF.
+			pc.onremovestream = function(e){
 				e.video = vid;
 				self.trigger('mediaRemoved', e);
 				if(vid&&vid.parentNode){
 					vid.parentNode.removeChild(vid);
 				}
-			});
+			};
 
+			// This doesn't work, would have to reevaluate
 			self.on(!!self.localStream || 'mediaAdded', function(){
-				console.log("adding media");
+				if(pc.readyState==='closed'){
+					console.log("PC:connection closed, can't add stream");
+					return;
+				}
+				console.log("PC:adding local media");
 				pc.addStream(self.localStream);
 			});
 
@@ -543,13 +483,17 @@
 				}, null, config);
 			}
 
+
+
 			return pc;
 		}
 
 		//
 		// Invite
+		// This function sends an offer request to a user at a given ID.
 		this.offer = function(id){
 
+			// If there is no local stream available then postpone this operation
 			if(!self.localStream){
 				this.one('mediaAdded', function(){
 					self.offer(id);
@@ -557,11 +501,12 @@
 				return this;
 			}
 
-			// Do we already have a PeerConnection for this user
+			// To decide which of the clients will make the offer (only one can at a time)
+			// The session id is taken from the socket.io server
 			if(id in self.streams){
 				// A peer connection for this user has already been created
 				// This request is going to be ignored
-				console.error("Offer/Answer already sent, only one party can do this");
+				console.error("this.offer(): This client has lost the toss, the other client must make the offer");
 				return;
 			}
 
@@ -585,10 +530,11 @@
 			}
 
 			// Do we already have a PeerConnection for this user
+			// We dont care, Who won the toss?
 			if(data.from in self.streams){
 				// A peer connection for this user has already been created
 				// This request is going to be ignored
-				console.error("Offer already sent, only one party can do this");
+				console.error("this.answer(): This client has lost the toss, only one party can do this");
 				return;
 			}
 			
@@ -672,6 +618,7 @@
 				return;
 			}
 
+			console.log("on:answer: Answer recieved, connection created");
 			self.streams[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
 		});
 
@@ -696,11 +643,16 @@
 			if((data.from in self.streams) && ("close" in self.streams[data.from])){
 				
 				// create the event
-				var evt = document.createEvent('Event');
+				if(self.streams[data.from].dispatchEvent){
+					var evt = document.createEvent('Event');
 
-				// define that the event name is `build`
-				evt.initEvent('removestream', true, true);
-				self.streams[data.from].dispatchEvent(evt);
+					// define that the event name is `build`
+					evt.initEvent('removestream', true, true);
+					self.streams[data.from].dispatchEvent(evt);
+				}
+				else{
+					self.streams[data.from].onremovestream();
+				}
 
 				// Cancel the peer connection stream
 				session.streams[data.from].close();
@@ -714,6 +666,7 @@
 
 
 		window.onbeforeunload = function(){
+			// Tell everyone else of the session close.
 			if(self.socket){
 				self.socket.disconnect();
 			}
@@ -724,6 +677,101 @@
 	};
 
 	// Does the browser support everything?
-	Peer.supported = !!(navigator.getUserMedia && window.webkitRTCPeerConnection);
+	Peer.supported = !!(navigator.getUserMedia && RTCPeerConnection);
+
+
+	// EVENTS
+	// Extend the function we do have.
+	function Events(){
+
+		this.events = {};
+		this.callback = [];
+
+		// Return
+		this.on = function(name, callback){
+
+			// If there is no name
+			if(name===true){
+				callback();
+			}
+			else if(typeof(name)==='object'){
+				for(var x in name){
+					this.on(x, name[x]);
+				}
+			}
+			else if (name.indexOf(',')>-1){
+				for(var i=0,a=name.split(',');i<a.length;i++){
+					this.on(a[i],callback);
+				}
+			}
+			else {
+				console.log('Listening: ' + name);
+
+				if(callback){
+					// Set the listeners if its undefined
+					if(!this.events[name]){
+						this.events[name] = [];
+					}
+
+					// Append the new callback to the listeners
+					this.events[name].push(callback);
+				}
+			}
+
+			return this;
+		};
+
+		// One
+		// One is the same as On, but events are only fired once and must be reestablished afterwards
+		this.one = function(name, callback){
+			var self = this;
+			this.on(name, function once(){ self.off(name,once); callback.apply(this, arguments);} );
+		};
+
+		// Trigger Events defined on the publisher widget
+		this.trigger = function(name,evt,callback){
+				if(!name){
+					throw name;
+				}
+				var preventDefault;
+				// define prevent default
+				evt = evt || {};
+				evt.preventDefault = function(){
+					preventDefault = true;
+				};
+
+				console.log('Triggered: ' + name);
+				if(this.events[name]){
+					this.events[name].forEach(function(o,i){
+						if(o){
+							o(evt,callback);
+						}
+					});
+				}
+				
+				// Defaults
+				if(!preventDefault && "default:"+name in this.events){
+					console.log('Triggered: default:' + name);
+					this.events["default:"+name].forEach(function(o,i){
+						if(o){
+							o(evt,callback);
+						}
+					});
+				}
+
+				return this;
+		};
+
+		// Remove a callback
+		this.off = function(name, callback){
+			if(this.events[name]){
+				for( var i=0; i< this.events[name].length; i++){
+					if(this.events[name][i] === callback){
+						this.events[name][i] = null;
+					}
+				}
+			}
+		};
+	}
 
 })(document, window);
