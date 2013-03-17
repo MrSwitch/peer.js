@@ -50,8 +50,8 @@
 	if(!window.URL){
 		window.URL = window.webkitURL || window.msURL || window.mozURL || window.oURL;
 	}
-	if(!window.RTCPeerConnection){
-		window.RTCPeerConnection = window.PeerConnection || window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+	if(!window.PeerConnection){
+		window.PeerConnection = window.PeerConnection || window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
 	}
 
 
@@ -66,7 +66,7 @@
 	Peer.dataChannelSupported = (function(){
 		try{
 			// raises exception if createDataChannel is not supported
-			var pc = new RTCPeerConnection(Peer.stun_server, {optional: {RtpDataChannels: true} });
+			var pc = new PeerConnection(Peer.stun_server, {optional: {RtpDataChannels: true} });
 			var channel = pc.createDataChannel('supportCheck', {reliable: false});
 			channel.close();
 			return true;
@@ -397,8 +397,8 @@
 		// Peer Connection
 		// This is the massive Nut that holds it together
 		// But because its so ugly we are hiding it out of our code.
-		// This creates instances of a new RTCPeerConnection
-		function PeerConnection(id,data){
+		// This creates instances of a new PeerConnection
+		function PeerConnect(id,data){
 
 			// Callback
 			var callback = function(candidate){
@@ -417,7 +417,7 @@
 				pc_config = {"iceServers": [{"url": Peer.stun_server}]};
 //				stun = local ? null : Peer.stun_server;
 			try{
-				pc = new RTCPeerConnection(pc_config);
+				pc = new PeerConnection(pc_config);
 				pc.onicecandidate = function(e){
 					callback(e.candidate);
 				};
@@ -510,8 +510,8 @@
 				return;
 			}
 
-			// Create a new PeerConnection
-			self.streams[id] = PeerConnection(id);
+			// Create a new PeerConnect
+			self.streams[id] = PeerConnect(id);
 
 			return this;
 		};
@@ -529,7 +529,7 @@
 				return this;
 			}
 
-			// Do we already have a PeerConnection for this user
+			// Do we already have a PeerConnect for this user
 			// We dont care, Who won the toss?
 			if(data.from in self.streams){
 				// A peer connection for this user has already been created
@@ -540,7 +540,7 @@
 			
 			// Make a Peer Connection
 			// And answer the offer
-			self.streams[data.from] = PeerConnection(data.from,data);
+			self.streams[data.from] = PeerConnect(data.from,data);
 
 			return this;
 		};
@@ -677,7 +677,7 @@
 	};
 
 	// Does the browser support everything?
-	Peer.supported = !!(navigator.getUserMedia && RTCPeerConnection);
+	Peer.supported = !!(navigator.getUserMedia && PeerConnection);
 
 
 	// EVENTS
