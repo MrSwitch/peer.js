@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<meta charset='utf-8'> 
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
 <link rel="stylesheet" href="/_packages/document.css" />
 <script src="/_packages/document.js"></script>
@@ -51,7 +52,7 @@
 <script class="pre" src="peer.js"></script>
 <p>Next, create a unique id with Math.random() for the chat room, you could hard code this if you like, but anyway, i'm generating it like so...</p>
 <script class="pre">
-window.location.hash = (window.location.hash || parseInt(Math.random()*1e5,16).toString(16));
+window.location.hash = (window.location.hash || parseInt(Math.random()*1e4,10).toString(16));
 </script>
 <p><b>connect with video</b>. Call the library Peer and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media steams from other people in the same chat room.</p>
 <script class="pre">
