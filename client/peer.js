@@ -7,15 +7,23 @@
 (function(document, window){
 
 	// Switch between development and production
-	var host, local = false;
-	if(window.location.hostname.match(/^(local|192\.168\.)/)){
-		local = true;
-		host = window.location.hostname + ':5000';
-		console.log("This is running on a local environment and automatically assumes you have http://github.com/MrSwitch/peer-server.js running on port 5000");
+	var host,
+		local = false;
+
+	// Get the server location
+	if(!("PEER_SERVER_HOST" in window)){
+		var src = (function(){
+			var scripts = document.getElementsByTagName("script");
+			var script = scripts[scripts.length-1];
+			return (script.src || script.getAttribute('src')).replace(/^(https?:\/\/[^\/]+).*$/, function(m,host){
+				return host;
+			});
+		})();
+		host = src;
 	}
 	else{
 		// Path to the PeerJS server
-		host = "peer-server.herokuapp.com";
+		host = window.PEER_SERVER_HOST;
 	}
 
 	// An internal Queue for delaying the load
@@ -24,7 +32,7 @@
 	// Load SocketIO if it doesn't exist
 	if(typeof(io)==='undefined'){
 		var script = document.createElement('script');
-		script.src = (host ? 'http://' + host : '') + "/socket.io/socket.io.js";
+		script.src = host + "/socket.io/socket.io.js";
 		script.onreadystatechange= function () {
 			if (this.readyState == 'complete') {
 				Queue.trigger('loaded');
@@ -40,7 +48,7 @@
 	}
 
 	// Define the location  of the socket IO server
-	var ws = 'ws://' + (host ? host : window.location.hostname);
+	var ws = host.replace(/^.*?\/\//,'ws://');
 
 	// Does this browser support WebRTC?
 	if(!navigator.getUserMedia){
@@ -254,7 +262,7 @@
 		Queue.on(typeof(io)!=='undefined'||'loaded', function(){
 			// Given a video tag
 			// Broadcast to all parties the new stream
-			self.socket = io.connect( ws );
+			self.socket = io.connect( host );
 
 			// Define an onload handler
 			self.socket.on('message', function(data){
