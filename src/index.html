@@ -41,7 +41,7 @@
 </header>
 
 <blockquote>
-PeerJS is a service which makes it easier to build a chat room using the <strike>upcoming</strike> <em>present</em> <a href="http://www.w3.org/TR/webrtc/">WebRTC's PeerConnection API</a>. The PeerConnection API proposes to be able to send data, video etc from one user-agent to another without the need for it going through a server. The demo here relies on a simple nodejs relay server <a href="http://github.com/MrSwitch/peer-server.js">Peer-Server</a> to marry two user-agents.
+PeerJS is a service which makes it easier to build a chat room using the <strike>upcoming</strike> <em>present</em> <a href="http://www.w3.org/TR/webrtc/">WebRTC's PeerConnection API</a>. The PeerConnection API proposes to be able to send data, video etc from one user-agent to another without the need for it going through a server. PeerJS handles this handshake with a simple Socket.IO backend server.
 </blockquote>
 
 <div class="demo">
@@ -54,9 +54,6 @@ PeerJS is a service which makes it easier to build a chat room using the <strike
 
 <h2>Demo Code</h2>
 <p>The above demo takes just a few steps to implement. Firstly embed the Peer.JS script</p>
-<script class="pre">
-	window.PEER_SERVER_HOST = "https://peer-server.herokuapp.com";
-</script>
 
 	<script class="pre" src="http://localhost:5000/peer.js"></script>
 
@@ -66,7 +63,7 @@ PeerJS is a service which makes it easier to build a chat room using the <strike
 	window.location.hash = (window.location.hash || parseInt(Math.random()*1e4,10).toString(16));
 </script>
 
-<p><b>connect with video</b>. Call the library Peer and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media steams from other people in the same chat room.</p>
+<p><b>connect with video</b>. Call the library Peer and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media streams from other people in the same chat room.</p>
 
 <script class="pre">
 	var session = Peer.initSession().addMedia('myvideo').connect(window.location.hash).on('media', function(e){

@@ -3,7 +3,7 @@
 
 
 
-PeerJS is a service which makes it easier to build a chat room using the upcoming present [WebRTC's PeerConnection API](http://www.w3.org/TR/webrtc/). The PeerConnection API proposes to be able to send data, video etc from one user-agent to another without the need for it going through a server. The demo here relies on a simple nodejs relay server [Peer-Server](http://github.com/MrSwitch/peer-server.js) to marry two user-agents.
+PeerJS is a service which makes it easier to build a chat room using the upcoming present [WebRTC's PeerConnection API](http://www.w3.org/TR/webrtc/). The PeerConnection API proposes to be able to send data, video etc from one user-agent to another without the need for it going through a server. PeerJS handles this handshake with a simple Socket.IO backend server.
 
 
 
@@ -17,9 +17,6 @@ Share chatroom link []()
 ## Demo Code
 The above demo takes just a few steps to implement. Firstly embed the Peer.JS script
 
-	window.PEER_SERVER_HOST = "https://peer-server.herokuapp.com";
-
-
 	<script class="pre" src="http://localhost:5000/peer.js"></script>
 
 Next, create a unique id with Math.random() for the chat room, you could hard code this if you like, but anyway, i'm generating it like so...
@@ -28,7 +25,7 @@ Next, create a unique id with Math.random() for the chat room, you could hard co
 	window.location.hash = (window.location.hash || parseInt(Math.random()*1e4,10).toString(16));
 
 
-connect with video. Call the library Peer and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media steams from other people in the same chat room.
+connect with video. Call the library Peer and invoke a new session. Append the video tag (defined by the id 'myvideo'). Connect to the "room" we spoke about earlier. Then listen for new media streams from other people in the same chat room.
 
 
 	var session = Peer.initSession().addMedia('myvideo').connect(window.location.hash).on('media', function(e){

@@ -20,8 +20,8 @@ buildDist({
 
 buildDist({
 	// Create files newFile=>Packages
-	"../bin/document.css" : "../../_packages/document.css",
-	"../bin/document.js" : "../../_packages/document.js",
+	"../bin/document.min.css" : "../../_packages/document.css",
+	"../bin/document.min.js" : "../../_packages/document.js",
 	"../bin/index.html" : "./index.html",
 
 	"../bin/peer.js" : "peer.js",
