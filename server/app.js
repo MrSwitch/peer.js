@@ -61,6 +61,10 @@ console.log(port);
 
 var socket=require("socket.io");
 var io=socket.listen(app);
+io.enable('browser client minification');  // send minified client
+io.enable('browser client etag');          // apply etag caching logic based on version number
+io.enable('browser client gzip');          // gzip the file
+io.set('log level', 1);                    // reduce logging
 
 // This has to be run on port 80
 io.configure(function (){
@@ -160,37 +164,47 @@ io.sockets.on('connection', function (socket) {
 						return;
 					}
 
-					// Make a local copy
+					// Clone the data
+					// Ok this isn't really a clone
 					var _data = data;
 
-					// Does the too field contain an email?
-					if(id.match('@')){
-
-						// Show Original ID ref
-						_data.original_to = id;
-
-						// Look up the field
-						if(id in profiles){
-							id = profiles[id];
-						}
-						else {
-							// Store the message that we're sending to this user until they come online.
-							// 
-							if(!(id in pending)){
-								pending[id]=[];
-							}
-
-							pending[id].push(_data);
-
-							// Save the id of the user, so we can clean it up if you leave before they come online.
-							my_contacts.push(id);
-							return;
-						}
+					// Is this a Socket address given?
+					// Aka not an email address
+					if(!id.match("@")){
+						// Send data
+						_data.to = id;
+						send(id, _data);
+						return;
 					}
 
-					// Send data
-					_data.to = id;
-					send(id, _data);
+
+					// Now we're looking for a reference to the users SocketID.
+					var ref = id;
+
+					// Show Original ID ref
+					_data.original_to = ref;
+
+					// Look up the field
+					if(ref in profiles){
+						// For each socket by that name send them the message
+						profiles[ref].forEach(function(id){
+							_data.to = id;
+							send(id, _data);
+						});
+					}
+					// User is not online
+					else {
+						// Send them a message
+						// Store the message that we're sending to this user until they come online.
+						if(!(ref in pending)){
+							pending[ref]=[];
+						}
+
+						pending[ref].push(_data);
+
+						// Save the id of the user, so we can clean it up if you leave before they come online.
+						my_contacts.push(ref);
+					}
 				});
 			}
 			else if(data.group){
@@ -212,8 +226,17 @@ io.sockets.on('connection', function (socket) {
 			data = [data];
 		}
 		data.forEach(function(ref){
+			if(!(ref in profiles)){
+				profiles[ref] = [];
+			}
 
-			profiles[ref] = socket.id;
+			// Has this already been added?
+			if(profiles[ref].indexOf(socket.id)>=0){
+				return;
+			}
+
+			profiles[ref].push(socket.id);
+
 			my_profiles.push(ref);
 
 			// Is anyone listening for this user?
@@ -228,7 +251,7 @@ io.sockets.on('connection', function (socket) {
 				// Delete
 				//delete pending[ref];
 			}
-		})
+		});
 	});
 
 
@@ -237,9 +260,16 @@ io.sockets.on('connection', function (socket) {
 		// Loop through profiles
 		my_profiles.forEach(function(ref){
 			// If this was the last socket to define this then
-			if(profiles[ref]===socket.id){
-				// remove from the current profile list
-				delete profiles[ref];
+			var i = profiles[ref].indexOf(socket.id);
+			if(i>-1){
+				// remove from global profiles hash
+				profiles[ref].splice(profiles[ref].indexOf(socket.id),1);
+
+				// Is the profiles hash now empty
+				if(profiles[ref].length===0){
+					// remove from the profile list
+					delete profiles[ref];
+				}
 			}
 		});
 
