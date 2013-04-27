@@ -14,12 +14,17 @@ var buildDist = require("../../_packages/buildDist.js");
 // Minified CSS and Javascript files
 // Changed references to files in other projects to their absolute URL's
 buildDist({
+	"../index.html" : "./index.html",
+	"../README.md" : "./index.html"
+});
+
+buildDist({
 	// Create files newFile=>Packages
 	"../bin/document.css" : "../../_packages/document.css",
 	"../bin/document.js" : "../../_packages/document.js",
-	"../bin/index.html" : "../index.html",
+	"../bin/index.html" : "./index.html",
+
 	"../bin/peer.js" : "peer.js",
-	"../README.md" : "../bin/index.html",
 
 	"../bin/app.js" : "./app.js",
 	"../bin/peer-server.js" : "./peer-server.js"
