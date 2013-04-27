@@ -25,11 +25,8 @@
 		padding:3px;
 		max-height:200px;
 	}
-	form.msg {
+	form.msg input,form.msg textarea{
 		width:100%;
-	}
-	form.msg  *{
-		width:inherit;
 		background-color: #eee;
 		border:1px solid #ccc;
 		padding:4px;
@@ -44,11 +41,14 @@
 PeerJS is a service which makes it easier to build a chat room using the <strike>upcoming</strike> <em>present</em> <a href="http://www.w3.org/TR/webrtc/">WebRTC's PeerConnection API</a>. The PeerConnection API proposes to be able to send data, video etc from one user-agent to another without the need for it going through a server. PeerJS handles this handshake with a simple Socket.IO backend server.
 </blockquote>
 
+
+<form class="msg">
 <div class="demo">
 <video id="myvideo"></video>
 </div>
-
-<form class="msg"><input type="text" name="input" placeholder="message"/><textarea name="textarea"></textarea></form>
+<input type="text" name="input" placeholder="message"/>
+<textarea name="textarea"></textarea>
+</form>
 
 <aside>Share chatroom link <a id="chat-room-link" target="_blank"></a></aside>
 
