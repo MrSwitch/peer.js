@@ -98,51 +98,61 @@
 
 		var self = this;
 
-		// Search for the element to replace
-		if(typeof rplElm === 'string'){
-			var el = document.getElementById(rplElm);
-			if(!el){
-				el = document.querySelector(rplElm);
+		this.el = null;
+
+		if(rplElm){
+
+			// Search for the element to replace
+			if(typeof rplElm === 'string'){
+				var el = document.getElementById(rplElm);
+				if(!el){
+					el = document.querySelector(rplElm);
+				}
+				rplElm = el;
 			}
-			rplElm = el;
-		}
 
 
-		// Is the item in a video element?
-		if(rplElm.tagName.toLowerCase() !== 'video'){
-			this.el = document.createElement('video');
-			rplElm.appendChild(this.el);
-		}
-		else{
-			this.el = rplElm;
-		}
+			// Is the item in a video element?
+			if(rplElm.tagName.toLowerCase() !== 'video'){
+				this.el = document.createElement('video');
+				rplElm.appendChild(this.el);
+			}
+			else{
+				this.el = rplElm;
+			}
 
-		// Set AutoPlay
-		this.el.autoplay = true;
+			// Set AutoPlay
+			this.el.autoplay = true;
+			
+		}
 
 		// Create a success callback
 		// Fired when the users camera is attached
 		var _success = function(stream){
 
-			// Attach the stream to the UI
-			self.el.src = URL ? URL.createObjectURL(stream) : stream;
-
-			// Autoplay isn't working in FF, so set it here
-			self.el.play();
-
 			// Save stream to element
 			self.stream = stream;
 
-			// Add an error event
-			self.el.onerror = function(event) {
-				stream.stop();
-				self.trigger('failure', event);
-			};
+			if(self.el){
 
-			// Trigger any success listeners.
-			self.el.onload = function(){
-				self.trigger('success', stream);
-			};
+				// Attach the stream to the UI
+				self.el.src = URL ? URL.createObjectURL(stream) : stream;
+
+				// Autoplay isn't working in FF, so set it here
+				self.el.play();
+
+				// Add an error event
+				self.el.onerror = function(event) {
+					stream.stop();
+					self.trigger('failure', event);
+				};
+
+				// Trigger any success listeners.
+				self.el.onload = function(){
+					self.trigger('success', stream);
+				};
+
+			}
 
 			// Vid onload doesn't seem to fire
 			self.trigger('started',stream);
@@ -704,7 +714,7 @@
 
 			// If there is no name
 			if(name===true){
-				callback();
+				callback.call(this);
 			}
 			else if(typeof(name)==='object'){
 				for(var x in name){
@@ -756,7 +766,7 @@
 				if(this.events[name]){
 					this.events[name].forEach(function(o,i){
 						if(o){
-							o(evt,callback);
+							o.call(this,evt,callback);
 						}
 					});
 				}
@@ -766,7 +776,7 @@
 					console.log('Triggered: default:' + name);
 					this.events["default:"+name].forEach(function(o,i){
 						if(o){
-							o(evt,callback);
+							o.call(this,evt,callback);
 						}
 					});
 				}
