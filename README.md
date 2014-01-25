@@ -20,7 +20,7 @@ Share chatroom link []()
 ## Demo Code
 The above demo takes just a few steps to implement. Firstly embed the Peer.JS script
 
-	<script class="pre" src="http://localhost:5000/peer.js"></script>
+	<script class="pre" src="https://peer-server.herokuapp.com/peer.min.js"></script>
 
 Next, create a unique id with Math.random() for the chat room, you could hard code this if you like, but anyway, i'm generating it like so...
 

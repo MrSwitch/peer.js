@@ -127,6 +127,9 @@
 			// Attach the stream to the UI
 			self.el.src = URL ? URL.createObjectURL(stream) : stream;
 
+			// Moz
+			// self.el.mozSrcObject = stream;
+
 			// Autoplay isn't working in FF, so set it here
 			self.el.play();
 
@@ -347,6 +350,24 @@
 			return this;
 		};
 
+		//
+		// Add and watch personal identifications
+		//
+		this.friend = function(data){
+			console.log("friend", data);
+			if(!(data instanceof Array)){
+				if(typeof(data)==='string'){
+					data = [data];
+				}
+				else{
+					console.error("Me data is neither an array or a string");
+				}
+			}
+			emit('friend', data );
+
+			return this;
+		};
+
 
 		// Publish a new localMedia object
 		this.addMedia = function(media){
@@ -426,10 +447,11 @@
 
 			// Peer Connection
 			var pc,
-				pc_config = {"iceServers": [{"url": Peer.stun_server}]};
+				pc_config = {"iceServers": [{"url": Peer.stun_server}]},
+				pc_constraints = {"optional": [{"DtlsSrtpKeyAgreement": true}]};
 //				stun = local ? null : Peer.stun_server;
 			try{
-				pc = new PeerConnection(pc_config);
+				pc = new PeerConnection(pc_config, pc_constraints);
 				pc.onicecandidate = function(e){
 					callback(e.candidate);
 				};
@@ -476,7 +498,9 @@
 			// No data is needed to make an offer
 			var offer = !data;
 
-			var config = null;//{'has_audio':true, 'has_video':true};
+			var config = { 'optional': [], 'mandatory': {
+                          'OfferToReceiveAudio': true,
+                          'OfferToReceiveVideo': true }};
 
 			// Making an offer?
 			if(offer){
