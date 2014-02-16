@@ -63,7 +63,7 @@ module.exports = function(app){
 
 	io.sockets.on('connection', function (socket) {
 
-		var _group,
+		var threads = [],
 			my_contacts = [];
 
 
@@ -79,40 +79,45 @@ module.exports = function(app){
 			add_index(recipients, data.from, to);
 		}
 
-
 		socket.send(JSON.stringify({
-			type : 'init',
+			type : 'socket:connect',
 			from : socket.id,
 			to : socket.id
 		}));
 
 
 		//
-		// Assign user to a 'group'
+		// Assign user to a 'thread'
 		// Listen for a 'join' event
+		// We can join multiple threads simultaneously
 		//
-		socket.on('join', function(group){
+		socket.on('thread:connect', function(thread){
 
-			if(_group&&group!==_group){
-				console.log("Leaving "+_group);
-				socket.leave(_group);
-			}
+			threads.push(thread);
 
-			if(group){
-				// Join Group
-				console.log("Joined "+group);
-				socket.join(group);
+			socket.join(thread);
 
-				// Broadcast to yourself that you have joined a room
-				socket.send(JSON.stringify({
-					type : 'joined',
-					from : socket.id,
-					to : socket.id
-				}));
-			}
+			// Broadcast to yourself that you have joined a room
+			socket.send(JSON.stringify({
+				type : 'thread:connect',
+				from : socket.id,
+				to : socket.id
+			}));
 
-			// Set Global
-			_group = group;
+			// Join Group
+			console.log("join: "+thread);
+		});
+
+		// Leave
+		socket.on('thread:disconnect', function(thread){
+
+			// remove from the list
+			threads.splice(threads.indexOf(thread),1);
+
+			// Leaving thread
+			socket.leave(thread);
+
+			console.log("leave: "+thread);
 		});
 
 
@@ -188,8 +193,8 @@ module.exports = function(app){
 						}
 					});
 				}
-				else if(data.group){
-					socket.broadcast.to(data.group).send(JSON.stringify(data));
+				else if(data.thread){
+					socket.broadcast.to(data.thread).send(JSON.stringify(data));
 				}
 			});
 		});
@@ -200,7 +205,7 @@ module.exports = function(app){
 		// `facebook_id`@facebook
 		// `windows_id`@windows
 		// `google_id`@google
-		socket.on('me',function(data){
+		socket.on('socket:tag',function(data){
 
 			// The session has has a thirdparty ID
 			// Loop through this Array
@@ -259,7 +264,7 @@ module.exports = function(app){
 		// Define Profile ID's of user's one wishes to watch
 		// e.g. [`facebook_id`@facebook, `windows_id`@windows, `google_id`@google]
 		//
-		socket.on('friend',function(data){
+		socket.on('socket:watch',function(data){
 
 			// Loop through the ID's
 			(data instanceof Array ? data : [data]).forEach(function(id){
@@ -284,7 +289,7 @@ module.exports = function(app){
 
 						// Deliver to the 'friend' this user... who wants to know their online status
 						send(session_id,{
-							type : "friend",
+							type : "socket:watch",
 							data : profiles[socket.id],
 							from : socket.id
 						});
@@ -294,7 +299,7 @@ module.exports = function(app){
 		});
 
 
-		socket.on('disconnect', function(){
+		socket.on('socket:disconnect', function(){
 
 			// Remove session from profiles
 			if(socket.id in session_userids){
@@ -329,19 +334,19 @@ module.exports = function(app){
 				}
 			});
 
-			// Broadcast disconnect to group
-			if(_group){
-				socket.broadcast.to(_group).send(JSON.stringify({
-					type : 'disconnect',
+			// Broadcast disconnect to thread
+			threads.forEach(function( thread ){
+				socket.broadcast.to( thread ).send(JSON.stringify({
+					type : 'socket:disconnect',
 					from : socket.id
 				}));
-			}
+			});
 
 			// Broadcast disconnect to anyone you've sent a message too.
 			if(socket.id in recipients){
 				recipients[socket.id].forEach(function(id){
 					send(id, {
-						type : 'disconnect',
+						type : 'socket:disconnect',
 						from : socket.id
 					});
 				});
