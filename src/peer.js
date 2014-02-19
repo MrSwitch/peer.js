@@ -151,10 +151,26 @@ var peer = {
 		// Fired when the users camera is attached
 		var _success = function(stream){
 
+			// Attach stream
 			self.localmedia = stream;
 
+			// listen for change events on this stream
+			self.localmedia.onended = function(){
+
+				// Detect the change
+				if( !self.localmedia || self.localmedia === stream ){
+					self.emit('localmedia:disconnect');
+					self.localmedia = null;
+				}
+
+				// Loop through streams and call removeStream
+				for(var x in self.streams){
+					self.streams[x].removeStream(stream);
+				}
+			};
+
 			// Vid onload doesn't seem to fire
-			self.emit('localmedia:added',stream);
+			self.emit('localmedia:connect',stream);
 		};
 
 		// Trigger a failure
@@ -174,7 +190,7 @@ var peer = {
 		else{
 
 			// Add callback
-			self.on('localmedia:added', callback);
+			self.on('localmedia:connect', callback);
 
 			// Call it?
 			try{
@@ -198,32 +214,29 @@ var peer = {
 	// Send information to the socket
 	//
 	send : function(name, data, callback){
-
-		// Count
-		var callback_count = this.callback.length;
-
-		// Array?
-		if(!(data instanceof Array)){
-			data = [data];
-		}
-
-		for(var i=0;i<data.length;i++){
-			data[i] = data[i] || {};
-			data[i].type = name;
-			if(callback){
-				data[i].callback = callback_count;
-			}
+		//
+		if (typeof(name) === 'object'){
+			callback = data;
+			data = name;
+			name = null;
 		}
 
 		// Add callback
 		if(callback){
+			// Count
+			var callback_id = this.callback.length;
 			this.callback.push(callback);
 		}
 
 		console.log("SEND: "+ name, data);
 
-		this.on(!!this.id||'socket:connect', function(){
-			self.socket.send(JSON.stringify(data));
+		this.one(!!this.id||'socket:connect', function(){
+			if( name ){
+				this.socket.emit(name, data, callback_id);
+			}
+			else{
+				this.socket.send(JSON.stringify(data));
+			}
 		});
 
 		return this;
@@ -286,7 +299,8 @@ var peer = {
 
 		// Connect to a messaging group
 		this.send("thread:"+thread.state, {
-			thread : id
+			thread : id,
+			constraints : constraints
 		});
 
 		return thread;
@@ -300,57 +314,142 @@ var peer = {
 	// Stream
 	// Establises a connection with a user
 	//
-	stream : function( id, constraints, data ){
+	stream : function( id, constraints, offer ){
 
-		var self = this;
+		console.log("stream()", arguments);
 
-		// Callback
-		var callback = function(candidate){
-			if(!candidate){
+		var self = this,
+			pc = this.streams[id];
+
+
+		var config = { 'optional': [], 'mandatory': {
+						'OfferToReceiveAudio': true,
+						'OfferToReceiveVideo': true }};
+
+
+		if(!pc){
+
+			// Peer Connection
+			// Initiate a local peer connection handler
+			var pc_config = {"iceServers": [{"url": self.stun_server}]},
+				pc_constraints = {"optional": [{"DtlsSrtpKeyAgreement": true}]};
+	//				stun = local ? null : Peer.stun_server;
+
+			try{
+				pc = new PeerConnection(pc_config, pc_constraints);
+				pc.onicecandidate = function(e){
+					var candidate = e.candidate;
+					if(candidate){
+						self.send({
+							type : 'stream:candidate',
+							data : {
+								label: candidate.label||candidate.sdpMLineIndex,
+								candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate
+							},
+							to : id
+						});
+					}
+				};
+			}catch(e){
+				console.error("Failed to create PeerConnection, exception: " + e.message);
 				return;
 			}
-			self.send('stream:candidate',{
-				data : {
-					label: candidate.label||candidate.sdpMLineIndex,
-					candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate
-				},
-				to : id
-			});
-		};
+
+			//
+			// Store this connection
+			this.streams[id] = pc;
 
 
-		// Peer Connection
-		var pc,
-			pc_config = {"iceServers": [{"url": self.stun_server}]},
-			pc_constraints = {"optional": [{"DtlsSrtpKeyAgreement": true}]};
-//				stun = local ? null : Peer.stun_server;
-		try{
-			pc = new PeerConnection(pc_config, pc_constraints);
-			pc.onicecandidate = function(e){
-				callback(e.candidate);
+			//pc.addEventListener("addstream", works in Chrome
+			//pc.onaddstream works in FF and Chrome
+			pc.onaddstream = function(e){
+				e.from = id;
+				self.emit('media:connect', e);
 			};
-		}catch(e){
-			console.error("Failed to create PeerConnection, exception: " + e.message);
-			return;
+
+			// pc.addEventListener("removestream", works in Chrome
+			// pc.onremovestream works in Chrome and FF.
+			pc.onremovestream = function(e){
+				e.from = id;
+				self.emit('media:disconnect', e);
+			};
+
+			// This should now work, will have to reevaluate
+			self.on('localmedia:connect', addLocalStream);
+
+			if(!!self.localmedia){
+				addLocalStream();
+			}
+
+			pc.ondatachannel = function(e){
+				setupDataChannel(e.channel);
+			};
+
+			pc.onnegotiationneeded = function(e){
+				pc.createOffer(function(session){
+					pc.setLocalDescription(session, function(){
+						self.send({
+							type : "stream:offer",
+							to : id,
+							data : {
+								offer : pc.localDescription
+							}
+						});
+					});
+
+				}, null, config);
+			};
 		}
 
-		//pc.addEventListener("addstream", works in Chrome
-		//pc.onaddstream works in FF and Chrome
-		pc.onaddstream = function(e){
-			e.from = id;
-			self.emit('stream:media', e);
-		};
 
-		// pc.addEventListener("removestream", works in Chrome
-		// pc.onremovestream works in Chrome and FF.
-		pc.onremovestream = function(e){
-			e.from = id;
-			self.emit('stream:mediaRemoved', e);
-		};
+		// Is this an offer or an answer?
+		// No data is needed to make an offer
+		// Making an offer?
+		if(!offer){
 
-		// This should now work, will have to reevaluate
-		self.on(!!self.localmedia || 'localmedia:added', function(){
+			// Create a datachannel
+			// This initiates the onnegotiationneeded event
+			var channel = pc.createDataChannel('data');
+			setupDataChannel(channel);
+		}
+		// No, we're processing an offer to make an answer then
+		else{
 
+			// Set the remote offer information
+			pc.setRemoteDescription(new RTCSessionDescription(offer), function(){
+				pc.createAnswer(function(session){
+					pc.setLocalDescription(session, function(){
+						self.send({
+							type : "stream:answer",
+							to : id,
+							data : pc.localDescription
+						});
+					});
+				}, null, config);
+			});
+		}
+
+
+		return pc;
+
+		//
+		function setupDataChannel(channel){
+
+			// Store
+			self.channels[id] = channel;
+
+			// Broadcast
+			channel.onopen = function(e){
+				e.id = id;
+				self.emit("channel:connect", e);
+			};
+			channel.onmessage = function(e){
+				e.id = id;
+				self.emit("channel:message", e);
+			};
+		}
+
+		function addLocalStream(){
 			if(pc.readyState==='closed'){
 				console.log("PC:connection closed, can't add stream");
 				return;
@@ -358,51 +457,24 @@ var peer = {
 			console.log("PC:adding local media");
 
 			// Do the constraints allow for media to be added?
-			if(constraints.indexOf('video')){
+			if(constraints.indexOf('video')>-1){
 				pc.addStream(self.localmedia);
 			}
-		});
-
-		// Is this an offer or an answer?
-		// No data is needed to make an offer
-		var offer = !data;
-
-		var config = { 'optional': [], 'mandatory': {
-						'OfferToReceiveAudio': true,
-						'OfferToReceiveVideo': true }};
-
-		// Making an offer?
-		if(offer){
-			pc.createOffer(function(session){
-				pc.setLocalDescription(session);
-
-				self.send("session:offer",{
-					"to" : id,
-					"data" : {
-						"sdp" : session
-					}
-				});
-
-			}, null, config);
 		}
-		// No, we're processing an offer to make an answer then
-		else{
-			// Set the remote offer information
-			pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-			pc.createAnswer(function(session){
-				pc.setLocalDescription(session);
+	},
 
-				self.send("session:answer",{
-					"to" : id,
-					"data" : {
-						"sdp" : session
-					}
-				});
-
-			}, null, config);
+	// CHANNELS
+	// Trigger messages via channels to specific users
+	channels : {},
+	channel : function(id, message){
+		// Get the peer connection
+		var channel = this.channels[id];
+		if(!channel){
+			// there is no open channel for this session
+			return false;
 		}
-
-		return pc;
+		channel.send(message);
+		return true;
 	}
 };
 
@@ -453,9 +525,10 @@ peer.on('thread:connect', function(e){
 
 	// SEND THREAD:CONNECT
 	// Was this a direct message?
-	if(e.to){
+	if(!e.to){
 		// Send a thread:connect back to them
-		peer.send('thread:connect', {to:e.from});
+		e.to = e.from;
+		peer.send('thread:connect', e);
 	}
 
 
@@ -467,7 +540,7 @@ peer.on('thread:connect', function(e){
 
 		// This client is in charge of initiating the Stream Connection
 		// We'll do this off the bat of acquiring a thread:connect event from a user
-		peer.stream( e.from, thread.credentials );
+		peer.stream( e.from, thread.constraints );
 	}
 });
 
@@ -542,10 +615,24 @@ peer.on('thread:disconnect', function(e){
 peer.on('stream:offer', function(e){
 	//
 	// Offer
-	var offer = e.data;
+	var data = e.data,
+		uid = e.from,
+		constraints = [];
 
+	//
+	// Get the threads which this connection is in
+	// 
+	for(var x in this.threads){
+		var thread = this.threads[x];
+		if(thread.sessions.indexOf(uid)>-1){
+			// This user has set the following constraints on this thread.
+			constraints = array_merge_unique(constraints, thread.constraints);
+		}
+	}
+
+	//
 	// Creates a stream:answer event
-	this.stream( e.from, offer.constraints, offer.sdp );
+	this.stream( e.from, constraints, data.offer );
 
 });
 
@@ -554,10 +641,10 @@ peer.on('stream:offer', function(e){
 //
 // stream:answer
 // 
-peer.on('stream:answer', function(data){
+peer.on('stream:answer', function(e){
 
 	console.log("on:answer: Answer recieved, connection created");
-	self.streams[data.from].setRemoteDescription( new RTCSessionDescription(data.answer) );
+	this.streams[e.from].setRemoteDescription( new RTCSessionDescription(e.data) );
 
 });
 
@@ -583,6 +670,19 @@ peer.on('stream:candidate', function(e){
 });
 
 
+// Channels
+peer.on('channel:connect', function(e){
+	//
+	// Process 
+	console.log('channel:connect',e);
+});
+
+// 
+peer.on('channel:message', function(e){
+	//
+	// Process 
+	console.log('channel:message',e);
+});
 
 
 
@@ -612,7 +712,7 @@ function Events(){
 
 		// If there is no name
 		if(name===true){
-			callback();
+			callback.call(this);
 		}
 		else if(typeof(name)==='object'){
 			for(var x in name){
@@ -696,5 +796,14 @@ function Events(){
 	};
 }
 
+
+function array_merge_unique(a,b){
+	for(var i=0;i<b.length;i++){
+		if(a.indexOf(b[i])===-1){
+			a.push(b[i]);
+		}
+	}
+	return a;
+}
 
 })(document, window);

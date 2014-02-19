@@ -85,27 +85,36 @@ module.exports = function(app){
 			to : socket.id
 		}));
 
+		socket.on('*', function(data){
+			console.log(arguments);
+		});
 
 		//
 		// Assign user to a 'thread'
 		// Listen for a 'join' event
 		// We can join multiple threads simultaneously
 		//
-		socket.on('thread:connect', function(thread){
+		socket.on('thread:connect', function(data){
 
-			threads.push(thread);
-
-			socket.join(thread);
-
-			// Broadcast to yourself that you have joined a room
-			socket.send(JSON.stringify({
-				type : 'thread:connect',
-				from : socket.id,
-				to : socket.id
-			}));
+			var thread = data.thread;
 
 			// Join Group
-			console.log("join: "+thread);
+			if(threads.indexOf( thread ) === -1){
+				threads.push(data.thread);
+				socket.join(data.thread);
+			}
+
+			// Add from address
+			data.type = "thread:connect";
+			data.from = socket.id;
+
+			if(!data.to){
+				// Broadcast your thread:connect event to everyone
+				socket.broadcast.to(data.thread).send(JSON.stringify(data));
+			}
+			else{
+				send(data.to, data);
+			}
 		});
 
 		// Leave
