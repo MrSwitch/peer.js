@@ -56,32 +56,8 @@ var peer = {
 			// Connect to the socket
 			self.socket = io.connect( ws );
 
-// Define an onload handler
-			self.socket.on('message', function(data){
-				console.info("Incoming:", data);
-
-				data = JSON.parse(data);
-				var type = data.type;
-				try{
-					delete data.type;
-				}catch(e){}
-
-				if("callback_response" in data){
-					var i = data.callback_response;
-					delete data.callback_response;
-					self.callback[i].call(self, data);
-					return;
-				}
-
-				self.emit(type, data, function(o){
-					// if callback was defined, lets send it back
-					if("callback" in data){
-						o.to = data.from;
-						o.callback_response = data.callback;
-						self.socket.send(JSON.stringify(o));
-					}
-				});
-			});
+			// Define an message handling
+			self.socket.on('message', messageHandler);
 		};
 
 		// Load SocketIO if it doesn't exist
@@ -230,6 +206,16 @@ var peer = {
 
 		console.log("SEND: "+ name, data);
 
+		var recipient = data.to, channel = this.channels[recipient];
+		if( recipient && channel && channel.readyState==="open"){
+			if(name){
+				data.type = name;
+			}
+			channel.send(JSON.stringify(data));
+			return;
+		}
+
+
 		this.one(!!this.id||'socket:connect', function(){
 			if( name ){
 				this.socket.emit(name, data, callback_id);
@@ -376,6 +362,9 @@ var peer = {
 
 			// This should now work, will have to reevaluate
 			self.on('localmedia:connect', addLocalStream);
+			self.on('localmedia:disconnect', function(){
+				pc.removeStream(peer.localmedia);
+			});
 
 			if(!!self.localmedia){
 				addLocalStream();
@@ -446,6 +435,11 @@ var peer = {
 			channel.onmessage = function(e){
 				e.id = id;
 				self.emit("channel:message", e);
+				messageHandler( e.data, id );
+			};
+			channel.onerror = function(e){
+				e.id = id;
+				self.emit("channel:error", e);
 			};
 		}
 
@@ -599,6 +593,36 @@ peer.on('thread:disconnect', function(e){
 });
 
 
+function messageHandler(data, from){
+	console.info("Incoming:", data);
+
+	data = JSON.parse(data);
+	var type = data.type;
+	try{
+		delete data.type;
+	}catch(e){}
+
+	if(from){
+		data.from = from;
+	}
+
+	if("callback_response" in data){
+		var i = data.callback_response;
+		delete data.callback_response;
+		peer.callback[i].call(peer, data);
+		return;
+	}
+
+	peer.emit(type, data, function(o){
+		// if callback was defined, lets send it back
+		if("callback" in data){
+			o.to = data.from;
+			o.callback_response = data.callback;
+			peer.socket.send(JSON.stringify(o));
+		}
+	});
+}
+
 
 //////////////////////////////////////////////////
 // STREAMS
@@ -674,14 +698,14 @@ peer.on('stream:candidate', function(e){
 peer.on('channel:connect', function(e){
 	//
 	// Process 
-	console.log('channel:connect',e);
+	// console.log('channel:connect',e);
 });
 
 // 
 peer.on('channel:message', function(e){
 	//
 	// Process 
-	console.log('channel:message',e);
+	// console.log('channel:message',e);
 });
 
 
