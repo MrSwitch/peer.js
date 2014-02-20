@@ -25,6 +25,10 @@
 		background-position: center center;
 		background-repeat: no-repeat no-repeat;
 	}
+	#myvideo[src]{
+		-webkit-transform:rotateY(180deg);
+		transform:rotateY(180deg);
+	}
 	form.msg input,form.msg textarea{
 		width:100%;
 		background-color: #eee;
@@ -369,7 +373,12 @@ peer.on( 'media:disconnect', function(e){
 //
 // Fired when the local media is disconnected
 peer.on( 'localmedia:disconnect', function(){
+	// Set the src='', to remove the last video image from the VideoTag
 	document.getElementById('myvideo').src = '';
+
+	// Then, remove the attribute
+	// this will now remove any styles we defined on video[src], aka the mirror flip effect.
+	document.getElementById('myvideo').removeAttribute('src');
 });
 
 
