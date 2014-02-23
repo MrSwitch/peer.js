@@ -6,19 +6,28 @@
 	"working_dir" : "${file_path:${folder}}"
 }
 */
-var buildDist = require("../../_packages/buildDist.js");
+var shunt = require("shunt");
 
 //
 // Build files
 // Moves files into the bin directory, having
 // Minified CSS and Javascript files
 // Changed references to files in other projects to their absolute URL's
-buildDist({
+shunt({
 	"../index.html" : "./index.html",
 	"../README.md" : "./index.html"
+},{
+
+	// Overrides the root of script and link tags in HTML,
+	// e.g. src="/_packages/document.js" becomes "http://adodson.com/_packages/document.js"
+
+	//
+	replace :{
+		"http://localhost:5000/peer.js" : "https://peer-server.herokuapp.com/peer.min.js"
+	}
 });
 
-buildDist({
+shunt({
 	// Create files newFile=>Packages
 	"../bin/document.min.css" : "../../_packages/document.css",
 	"../bin/document.min.js" : "../../_packages/document.js",
@@ -29,7 +38,15 @@ buildDist({
 	"../bin/app.js" : "./app.js",
 	"../bin/peer-server.js" : "./peer-server.js"
 }, {
-	// REPLACE STRINGS
-	"/_packages/document.css" : "./document.min.css",
-	"/_packages/document.js" : "./document.min.js"
+	// This is the root directory on the local filesystem where root referenced scripts can be found.
+	// For instance, <script src="/vendor/jquery.js"></script> existed, and was pointing to a file outside this project*
+	// (*you might do this if you have a lot of projects)
+	// Then this is the full path to the web root.
+	root_dir : "D:/Projects/",
+
+	overrideRoot : 'http://adodson.com/',
+
+	replace : {
+		"http://localhost:5000/peer.js" : "https://peer-server.herokuapp.com/peer.min.js"
+	}
 });
