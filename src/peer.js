@@ -141,7 +141,7 @@ var peer = {
 
 				// Loop through streams and call removeStream
 				for(var x in self.streams){
-					self.streams[x].removeStream(stream);
+					self.streams[x].pc.removeStream(stream);
 				}
 			};
 
@@ -259,12 +259,40 @@ var peer = {
 	},
 
 
-
-	// A collection of threads for which this user is connected
+	//
+	// A collection of threads for which this user has connected
 	threads : {},
 
-	// A method for joining a thread
+	//
+	// Thread connecting/changeing/disconnecting
+	// Control the participation in a thread, by setting the permissions which you grant the thread.
+	// e.g. 
+	// thread( id string, Object[video:true] )  - send 'thread:connect'		- connects this user to a thread. Broadcasts 
+	// thread( id string, Object[video:false] ) - send 'thread:change'		- connects/selects this user to a thread
+	// thread( id string, false )				- send 'thread:disconnect'	- disconnects this user from a thread
+	//
+	//
+	// Typical preceeding flow: init
+	// -----------------------------
+	// 1. Broadcasts thread:connect + credentials - gets other members thread:connect (incl, credentials)
+	// 
+	// 2. Receiving a thread:connect with the users credentials
+	//		- creates a peer connection (if preferential session)
+	//
+	//		- taking the lowest possible credentials of both members decide whether to send camera*
+	//
+	// Thread:change
+	// -----------------------------
+	// 1. Updates sessions, updates other members knowledge of this client
+	//		- Broadcasts thread:change + new credentials to other members.
+	//		- ForEach peer connection which pertains to this session
+	//			For all the threads which this peer connection exists in determine the highest possible credentials, e.g. do they support video
+	//			Add/Remove remote + local video streams (depending on credentials). Should we reignite the Connection confifuration?
+	//		- This looks at all sessions in the thread and determines whether its saf
+	//
 	thread : function(id, constraints){
+
+		var init = false;
 
 		if( typeof(id) === "object" ){
 			if(!constraints){
@@ -273,21 +301,62 @@ var peer = {
 			id = (Math.random() * 1e18).toString(36);
 		}
 
-		// Store constraints for this thread
-		var thread = (this.threads[id] || (this.threads[id] = {}));
-		thread.constraints = constraints;
-		if(!thread.sessions){
-			thread.sessions = [];
+
+		// Get the thread
+		var thread = this.threads[id];
+
+		// INIT
+		// Else intiiatlize the thread
+		if(!thread){
+
+			// Create the thread object
+			thread = this.threads[id] = {
+				// initiate contraints
+				constraints : {},
+				// initiate sessions
+				sessions : [],
+				// initial state
+				state : 'connect'
+			};
+
+			// init
+			init = true;
 		}
 
-		// Action
-		thread.state = ( ! constraints ? "disconnect" : "connect");
+
+		//
+		// CONSTRAINTS
+		if( constraints === false ){
+
+			// Update state
+			delete this.threads[id];
+
+			// DISCONNECT
+			// broadcast a disconnect message to all members
+			this.send("thread:disconnect", {
+				thread : id
+			});
+
+			// Clear Up stream connections based on the change in the connections
+			clearUpStreams();
+			return;
+		}
+		else{
+			// Update thread constraints
+			for(var x in constraints){
+				thread.constraints[x] = constraints[x];
+			}
+		}
+
 
 		// Connect to a messaging group
-		this.send("thread:"+thread.state, {
+		this.send("thread:"+(init ? 'connect' : 'change'), {
 			thread : id,
 			constraints : constraints
 		});
+
+		// Tidy streams
+		clearUpStreams();
 
 		return thread;
 	},
@@ -298,14 +367,49 @@ var peer = {
 
 	//
 	// Stream
-	// Establises a connection with a user
+	// Establishes a connection with a user
 	//
 	stream : function( id, constraints, offer ){
 
 		console.log("stream()", arguments);
 
-		var self = this,
-			pc = this.streams[id];
+		var self = this;
+
+		// Operations
+		// Once the RTCPeerConnection object has been initialized, for every call to createOffer, setLocalDescription, createAnswer and setRemoteDescription; execute the following steps:
+		// Append an object representing the current call being handled (i.e. function name and corresponding arguments) to the operations array.
+		// If the length of the operations array is exactly 1, execute the function from the front of the queue asynchronously.
+		// When the asynchronous operation completes (either successfully or with an error), remove the corresponding object from the operations array. 
+		//  - After removal, if the array is non-empty, execute the first object queued asynchronously and repeat this step on completion.
+
+
+		var operations = [];
+		function operation(func){
+
+			// Add operations to the list
+			if(func){
+				operations.push(func);
+			}
+			else{
+				console.log("STATE:", pc.signalingState);
+			}
+
+			// Are we in a stable state?
+			if(pc.signalingState==='stable'){
+				// Pop the operation off the front.
+				var op = operations.shift();
+				if(op){
+					op();
+				}
+			}
+			else{
+				console.log("PENDING:", operations);
+			}
+		}
+		
+		// stream
+		var stream = this.streams[id] || (this.streams[id] = {constraints:constraints}),
+			pc = stream.pc;
 
 
 		var config = { 'optional': [], 'mandatory': {
@@ -315,6 +419,20 @@ var peer = {
 
 		if(!pc){
 
+			// Extend the stream with events
+			Events.call(stream);
+
+			// Listen for changes in the constraints
+			stream.on('constraints:change', toggleLocalStream);
+
+			stream.on('close', function(){
+
+				console.log("stream closed: All connections are removed");
+				stream.constraints = {};
+				toggleLocalStream();
+
+			});
+
 			// Peer Connection
 			// Initiate a local peer connection handler
 			var pc_config = {"iceServers": [{"url": self.stun_server}]},
@@ -322,7 +440,11 @@ var peer = {
 	//				stun = local ? null : Peer.stun_server;
 
 			try{
-				pc = new PeerConnection(pc_config, pc_constraints);
+				//
+				// Reference this connection
+				//
+				stream.pc = pc = new PeerConnection(pc_config, pc_constraints);
+
 				pc.onicecandidate = function(e){
 					var candidate = e.candidate;
 					if(candidate){
@@ -341,9 +463,9 @@ var peer = {
 				return;
 			}
 
-			//
-			// Store this connection
-			this.streams[id] = pc;
+			pc.onsignalingstatechange = function(e){
+				operation();
+			};
 
 
 			//pc.addEventListener("addstream", works in Chrome
@@ -361,13 +483,11 @@ var peer = {
 			};
 
 			// This should now work, will have to reevaluate
-			self.on('localmedia:connect', addLocalStream);
-			self.on('localmedia:disconnect', function(){
-				pc.removeStream(peer.localmedia);
-			});
+			self.on('localmedia:connect', toggleLocalStream);
+			self.on('localmedia:disconnect', toggleLocalStream);
 
 			if(!!self.localmedia){
-				addLocalStream();
+				toggleLocalStream();
 			}
 
 			pc.ondatachannel = function(e){
@@ -419,7 +539,7 @@ var peer = {
 		}
 
 
-		return pc;
+		return stream;
 
 		//
 		function setupDataChannel(channel){
@@ -443,18 +563,57 @@ var peer = {
 			};
 		}
 
-		function addLocalStream(){
+		function toggleLocalStream(){
+
+			var media = peer.localmedia;
+
 			if(pc.readyState==='closed'){
 				console.log("PC:connection closed, can't add stream");
 				return;
 			}
-			console.log("PC:adding local media");
+
 
 			// Do the constraints allow for media to be added?
-			if(constraints.indexOf('video')>-1){
-				pc.addStream(self.localmedia);
+			if(!stream.constraints.video||!media){
+
+				// We should probably remove the stream here
+				pc.getLocalStreams().forEach(function(media){
+					operation(function(){
+						console.log("PC:removing local media", media);
+						pc.removeStream(media);
+					});
+				});
+
+				return;
 			}
+
+			console.log("PC:adding local media");
+
+			// Set up listeners when tracks are removed from this stream
+			// Aka if the streams loses its audio/video track we want this to update this peer connection stream
+			// For some reason it doesn't... which is weird
+			// TODO: remove the any tracks from the stream here if this is not a regular call.
+			operation(function(){
+				pc.addStream(media);
+			});
+
+			// Add event listeners to stream
+			media.addEventListener('addtrack', function(e){
+				// reestablish a track
+				console.log(e);
+				// Swtich out current stream with new stream
+				//var a = pc.getLocalStreams();
+				//console.log(a);
+			});
+
+			// Remove track
+			media.addEventListener('removetrack', function(e){
+				//var a = pc.getLocalStreams();
+				console.log(e);
+			});
+
 		}
+
 	},
 
 	// CHANNELS
@@ -510,7 +669,7 @@ peer.on('thread:connect', function(e){
 
 	// It's weird that we should receive a connection to a thread we haven't already established a listener for
 	// But it could be that the thread was somehow removed.
-	var thread = peer.threads[e.thread] || peer.thread(e.thread, ['data']);
+	var thread = peer.threads[e.thread] || peer.thread(e.thread, {video:false});
 
 	// Add the sender to the internal list of thread sessions
 	if(thread.sessions.indexOf(e.from) === -1){
@@ -538,6 +697,17 @@ peer.on('thread:connect', function(e){
 	}
 });
 
+
+//
+// Thread Change
+// A client has updated their constraints, this changes what media can be sent
+// Trigger stream changes
+peer.on('thread:change', function(){
+	// A memeber of a thread, has changed their permissions
+});
+
+
+
 //
 // thread:disconnect
 // When a member disconnects from a thread we get this fired
@@ -554,42 +724,9 @@ peer.on('thread:disconnect', function(e){
 	}
 
 	//
-	// Determine whether all other threads to this user are disconnected
-	for(var x in this.threads){
-		thread = this.threads[x];
-		if(thread.sessions.indexOf(uid)>-1){
-			// The client resides in another thread
-			// BREAK here
-			return;
-		}
-	}
+	// Tidy up the streams
+	clearUpStreams();
 
-	//
-	// Does the client have a stream to remove?
-	// 
-	if((uid in this.streams) && ("close" in this.streams[uid])){
-
-		// Stream
-		var stream = this.streams[uid];
-		
-		// create the event
-		if(stream.dispatchEvent){
-			var evt = document.createEvent('Event');
-
-			// define that the event name is `build`
-			evt.initEvent('removestream', true, true);
-			stream.dispatchEvent(evt);
-		}
-		else if(stream.onremovestream){
-			//self.streams[data.from].onremovestream();
-		}
-
-		// Cancel the peer connection stream
-		stream.close();
-
-		// Remove the stream
-		delete this.streams[uid];
-	}
 });
 
 
@@ -640,23 +777,14 @@ peer.on('stream:offer', function(e){
 	//
 	// Offer
 	var data = e.data,
-		uid = e.from,
-		constraints = [];
+		uid = e.from;
 
-	//
-	// Get the threads which this connection is in
-	// 
-	for(var x in this.threads){
-		var thread = this.threads[x];
-		if(thread.sessions.indexOf(uid)>-1){
-			// This user has set the following constraints on this thread.
-			constraints = array_merge_unique(constraints, thread.constraints);
-		}
-	}
+	// Constraints
+	var constraints = getSessionConstraints( uid );
 
 	//
 	// Creates a stream:answer event
-	this.stream( e.from, constraints, data.offer );
+	this.stream( uid, constraints || {}, data.offer );
 
 });
 
@@ -668,7 +796,7 @@ peer.on('stream:offer', function(e){
 peer.on('stream:answer', function(e){
 
 	console.log("on:answer: Answer recieved, connection created");
-	this.streams[e.from].setRemoteDescription( new RTCSessionDescription(e.data) );
+	this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription(e.data) );
 
 });
 
@@ -690,7 +818,7 @@ peer.on('stream:candidate', function(e){
 		candidate		: data.candidate
 	});
 
-	stream.addIceCandidate(candidate);
+	stream.pc.addIceCandidate(candidate);
 });
 
 
@@ -819,6 +947,93 @@ function Events(){
 		}
 	};
 }
+
+
+
+
+//
+// For all the active streams determine whether they are still needed
+// Loop through all threads
+// Check the other threads which they are in and determine whether its appropriate to change the peer connection streams
+function clearUpStreams(){
+
+	// EACH STREAM
+	for( var sessionID in peer.streams ){
+
+		//
+		// Gets the constraints for the client's ID
+		var constraints = getSessionConstraints(sessionID);
+
+		//
+		// EOF, obtained highest constraints for this connection
+		// /////////////////////////////////
+
+		var stream = peer.streams[sessionID];
+
+		// If the stream is not active in a thread, lets kill em
+		if(!constraints){
+			stream.emit('close');
+			return;
+		}
+
+
+		// Have the contraints changed for this stream?
+		// Update the existing constraints on this stream
+
+		var changed=false, prop;
+		for(prop in stream.constraints){
+			if(stream.constraints[prop] !== constraints[prop]){
+				changed = true;
+				stream.constraints[prop] = constraints[prop] || false;
+			}
+		}
+		for(prop in constraints){
+			if(!(prop in stream.constraints)){
+				changed = true;
+			}
+			stream.constraints[prop] = constraints[prop];
+		}
+		if(changed){
+			stream.emit("constraints:change");
+		}
+
+	}
+}
+
+// ///////////////////////////////
+// Constraints
+// Returns an Object of the connection constraints
+
+function getSessionConstraints(sessionID){
+
+	var constraints = {},
+		active,
+		prop;
+
+	// Loop through the active threads where does it exist?
+	for(var threadID in peer.threads){
+
+		// Thread
+		var thread = peer.threads[threadID];
+
+		// Does this stream exist in the thread?
+		if(thread.constraints && thread.sessions.indexOf(sessionID)>-1){
+
+			// Mark that we found a thread this user belongs too
+			active = true;
+
+			// Loop through this threads credentials
+			for( prop in thread.constraints ){
+				// If the credential property is positive
+				if(thread.constraints[prop]){
+					constraints[prop] = thread.constraints[prop];
+				}
+			}
+		}
+	}
+	return active ? constraints : false;
+}
+
 
 
 function array_merge_unique(a,b){
