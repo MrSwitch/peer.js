@@ -1,16 +1,16 @@
 {
   "name": "WebRTC",
   "version": "0.0.2",
-  "main"  : "app.js",
-  "scripts" : {
-    "start" : "node src/app.js"
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
   },
   "dependencies": {
-    "socket.io" : "0.9.6",
-    "express": "2.5.x"
+    "socket.io": "0.9.6",
+    "connect": "~2.13.0"
   },
-  "devDependencies" : {
-    "shunt" : "*"
+  "devDependencies": {
+    "shunt": "*"
   },
   "engines": {
     "node": "0.10.x",

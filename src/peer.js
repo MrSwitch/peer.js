@@ -96,6 +96,7 @@ var peer = {
 			pc = new PeerConnection( {"iceServers": [{"url": "stun:localhost"}] });
 			channel = pc.createDataChannel('supportCheck', {reliable: false});
 			channel.close();
+			pc.close();
 		} catch(e) {}
 
 		return {
@@ -504,7 +505,7 @@ var peer = {
 								offer : pc.localDescription
 							}
 						});
-					});
+					}, errorHandler);
 
 				}, null, config);
 			};
@@ -533,13 +534,17 @@ var peer = {
 							to : id,
 							data : pc.localDescription
 						});
-					});
+					},errorHandler);
 				}, null, config);
 			});
 		}
 
 
 		return stream;
+
+		function errorHandler(e){
+			console.log("SET Description fail triggered:",e);
+		}
 
 		//
 		function setupDataChannel(channel){
@@ -694,6 +699,9 @@ peer.on('thread:connect', function(e){
 		// This client is in charge of initiating the Stream Connection
 		// We'll do this off the bat of acquiring a thread:connect event from a user
 		peer.stream( e.from, thread.constraints );
+	}
+	else if (stream){
+		clearUpStreams();
 	}
 });
 
@@ -971,8 +979,12 @@ function clearUpStreams(){
 		var stream = peer.streams[sessionID];
 
 		// If the stream is not active in a thread, lets kill em
-		if(!constraints){
-			stream.emit('close');
+		if( isEmpty(constraints) ){
+
+			if(! isEqual(constraints, stream.constraints) ){
+				stream.emit('close');
+			}
+
 			return;
 		}
 
@@ -1007,7 +1019,6 @@ function clearUpStreams(){
 function getSessionConstraints(sessionID){
 
 	var constraints = {},
-		active,
 		prop;
 
 	// Loop through the active threads where does it exist?
@@ -1019,9 +1030,6 @@ function getSessionConstraints(sessionID){
 		// Does this stream exist in the thread?
 		if(thread.constraints && thread.sessions.indexOf(sessionID)>-1){
 
-			// Mark that we found a thread this user belongs too
-			active = true;
-
 			// Loop through this threads credentials
 			for( prop in thread.constraints ){
 				// If the credential property is positive
@@ -1031,7 +1039,7 @@ function getSessionConstraints(sessionID){
 			}
 		}
 	}
-	return active ? constraints : false;
+	return constraints;
 }
 
 
@@ -1043,6 +1051,35 @@ function array_merge_unique(a,b){
 		}
 	}
 	return a;
+}
+
+function isEmpty(obj){
+	for(var x in obj){
+		if(obj[x]){
+			return false;
+		}
+	}
+	return true;
+}
+
+function isEqual(a,b){
+	var x;
+	if( typeof(a) !== typeof(b) ){
+		return false;
+	}
+	else if( typeof(a) === 'object' ){
+		for(x in a){
+			if( !isEqual( a[x], b[x] ) ){
+				return false;
+			}
+		}
+		for(x in b){
+			if( !( x in a ) ){
+				return false;
+			}
+		}
+	}
+	return a === b;
 }
 
 })(document, window);
