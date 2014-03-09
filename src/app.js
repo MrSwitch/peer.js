@@ -118,13 +118,20 @@ module.exports = function(app){
 		});
 
 		// Leave
-		socket.on('thread:disconnect', function(thread){
+		socket.on('thread:disconnect', function(data){
+
+			var thread = data.thread;
 
 			// remove from the list
 			threads.splice(threads.indexOf(thread),1);
 
 			// Leaving thread
 			socket.leave(thread);
+
+			data.type = "thread:disconnect";
+			data.from = socket.id;
+			socket.broadcast.to(thread).send(JSON.stringify(data));
+
 
 			console.log("leave: "+thread);
 		});
