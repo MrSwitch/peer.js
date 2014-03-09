@@ -415,6 +415,8 @@ peer.on( 'message', function(e){
 
 function addVideoElement(stream){
 
+	addStreamListeners(stream);
+
 	var url = window.URL.createObjectURL(stream);
 	var vid = document.createElement('video');
 	vid.style.background = '-webkit-canvas(loading) no-repeat center center';
@@ -429,8 +431,24 @@ function addVideoElement(stream){
 	return vid;
 }
 
+function addStreamListeners(stream){
+	stream.onerror = function(e){
+		console.log("STREAM ERROR", e);
+	};
+
+	stream.getVideoTracks().forEach(addTrackEvent);
+	stream.getAudioTracks().forEach(addTrackEvent);
+
+	function addTrackEvent(track){
+		track.onerror = function(e){
+			console.log("STREAM ERROR", e);
+		};
+	};
+}
 
 function showLocalStream(stream){
+
+	addStreamListeners(stream);
 
 	// Attach our stream to the video tab above.
 	var elm = document.getElementById('myvideo');
