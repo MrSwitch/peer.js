@@ -4,35 +4,24 @@
 // @author Andrew Dodson (@mr_switch)
 // @since July 2012
 //
-(function(document, window){
+require([
+		'utils/getUserMedia',
+		'utils/PeerConnection',
+		'utils/RTCSessionDescription',
+		'utils/events',
 
-	"use strict";
+		'utils/isEqual',
+		'utils/isEmpty',
 
-	// Does this browser support WebRTC?
-	if(!navigator.getUserMedia){
-		navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
-	}
-	// URL?
-	if(!window.URL){
-		window.URL = window.webkitURL || window.msURL || window.mozURL || window.oURL;
-	}
-	if(!window.PeerConnection){
-		window.PeerConnection = window.PeerConnection || window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
-	}
-
-	// Fix FF issue
-	if(window.mozRTCSessionDescription){
-		RTCSessionDescription = window.mozRTCSessionDescription;
-	}
+		'lib/featureDetect',
+		'lib/socket'
+	],
+	function(getUserMedia, PeerConnection, RTCSessionDescription, Events, isEqual, isEmpty, featureDetect, socket){
 
 
 	var STUN_SERVER = "stun:stun.l.google.com:19302";
 
 
-
-//
-// Build Peer Object
-//
 var peer = {
 
 	//
@@ -40,46 +29,27 @@ var peer = {
 	//
 	init : function(ws, callback){
 
+
 		var self = this;
+
+		// Connect to the service and let us know when connected
+		socket.connect(ws, function(){
+			// self.emit('socket:connect');
+		});
+
+		// Message
+		socket.on('*', function(data){
+
+			// propogate messages from the socket server to the app
+			self.emit(data.type, data);
+		});
 
 		// Loaded
 		if(callback){
-			this.on('socket:connect', callback);
+			this.one('socket:connect', callback);
 		}
 
-		// What happens on connect
-		var onload = function(){
-
-			// prevent duplicate
-			onload = function(){};
-
-			// Connect to the socket
-			self.socket = io.connect( ws );
-
-			// Define an message handling
-			self.socket.on('message', messageHandler);
-		};
-
-		// Load SocketIO if it doesn't exist
-		if(typeof(io)==='undefined'){
-
-			// Load socketIO
-			var script = document.createElement('script');
-			script.src = (ws||'') + "/socket.io/socket.io.js";
-			script.onreadystatechange= function () {
-				if (this.readyState == 'complete') {
-					onload();
-				}
-			};
-			script.onload = onload;
-
-			var ref = document.getElementsByTagName('script')[0];
-			if(ref.parentNode){
-				ref.parentNode.insertBefore(script,ref);
-			}
-		}
-
-		return self;
+		return this;
 	},
 
 	//
@@ -89,21 +59,7 @@ var peer = {
 	//
 	// DataChannel
 	// 
-	support : (function(){
-		var pc, channel;
-		try{
-			// raises exception if createDataChannel is not supported
-			pc = new PeerConnection( {"iceServers": [{"url": "stun:localhost"}] });
-			channel = pc.createDataChannel('supportCheck', {reliable: false});
-			channel.close();
-			pc.close();
-		} catch(e) {}
-
-		return {
-			rtc : !!pc,
-			datachannel : !!channel
-		};
-	})(),
+	support : featureDetect,
 
 
 	//
@@ -121,7 +77,7 @@ var peer = {
 		// Do we already have an open stream?
 		if(self.localmedia){
 			callback(this.localmedia);
-			return self;
+			return this;
 		}
 
 		// Create a success callback
@@ -132,17 +88,12 @@ var peer = {
 			self.localmedia = stream;
 
 			// listen for change events on this stream
-			self.localmedia.onended = function(){
+			stream.onended = function(){
 
 				// Detect the change
 				if( !self.localmedia || self.localmedia === stream ){
-					self.emit('localmedia:disconnect');
+					self.emit('localmedia:disconnect', stream);
 					self.localmedia = null;
-				}
-
-				// Loop through streams and call removeStream
-				for(var x in self.streams){
-					self.streams[x].pc.removeStream(stream);
 				}
 			};
 
@@ -150,47 +101,37 @@ var peer = {
 			self.emit('localmedia:connect',stream);
 		};
 
-		// Trigger a failure
-		var _failure = function(event){
-
-			//
-			self.emit('localmedia:failed', event);
-		};
-
-
+		//
+		// Has the callback been replaced with a stream
+		//
 		if(callback instanceof EventTarget){
 
 			// User aded a media stream
 			_success(callback);
-
-		}
-		else{
-
-			// Add callback
-			self.on('localmedia:connect', callback);
-
-			// Call it?
-			try{
-				navigator.getUserMedia({audio:true,video:true}, _success, _failure);
-			}
-			catch(e){
-				try{
-					navigator.getUserMedia('audio,video', _success, _failure);
-				}
-				catch(_e){
-					_failure();
-				}
-			}
-
+			return this;
 		}
 
-		return self;
+
+		// Add callback
+		if(callback){
+			self.one('localmedia:connect', callback);
+		}
+
+		// Call it?
+		getUserMedia({audio:true,video:true}, _success, function(e){
+			// Trigger a failure
+			self.emit('localmedia:failed', e);
+		});
+
+
+		return this;
 	},
 
 	//
 	// Send information to the socket
 	//
 	send : function(name, data, callback){
+
 		//
 		if (typeof(name) === 'object'){
 			callback = data;
@@ -198,16 +139,10 @@ var peer = {
 			name = null;
 		}
 
-		// Add callback
-		if(callback){
-			// Count
-			var callback_id = this.callback.length;
-			this.callback.push(callback);
-		}
-
 		console.log("SEND: "+ name, data);
 
 		var recipient = data.to, channel = this.channels[recipient];
+
 		if( recipient && channel && channel.readyState==="open"){
 			if(name){
 				data.type = name;
@@ -216,15 +151,7 @@ var peer = {
 			return;
 		}
 
-
-		this.one(!!this.id||'socket:connect', function(){
-			if( name ){
-				this.socket.emit(name, data, callback_id);
-			}
-			else{
-				this.socket.send(JSON.stringify(data));
-			}
-		});
+		socket.send(name, data, callback);
 
 		return this;
 	},
@@ -299,6 +226,8 @@ var peer = {
 			if(!constraints){
 				constraints = id;
 			}
+
+			// Make up a new thread ID if one wasn't given
 			id = (Math.random() * 1e18).toString(36);
 		}
 
@@ -711,7 +640,7 @@ peer.on('thread:connect', function(e){
 // A client has updated their constraints, this changes what media can be sent
 // Trigger stream changes
 peer.on('thread:change', function(){
-	// A memeber of a thread, has changed their permissions
+	// A member of a thread, has changed their permissions
 });
 
 
@@ -742,10 +671,6 @@ function messageHandler(data, from){
 	console.info("Incoming:", data);
 
 	data = JSON.parse(data);
-	var type = data.type;
-	try{
-		delete data.type;
-	}catch(e){}
 
 	if(from){
 		data.from = from;
@@ -758,15 +683,28 @@ function messageHandler(data, from){
 		return;
 	}
 
+	var type = data.type;
+	try{
+		delete data.type;
+	}catch(e){}
+
 	peer.emit(type, data, function(o){
 		// if callback was defined, lets send it back
 		if("callback" in data){
 			o.to = data.from;
 			o.callback_response = data.callback;
-			peer.socket.send(JSON.stringify(o));
+			peer.send(o);
 		}
 	});
 }
+
+
+peer.on('localmedia:disconnect', function(stream){
+	// Loop through streams and call removeStream
+	for(var x in this.streams){
+		this.streams[x].pc.removeStream(stream);
+	}
+});
 
 
 //////////////////////////////////////////////////
@@ -851,110 +789,13 @@ peer.on('channel:message', function(e){
 //
 window.onbeforeunload = function(){
 	// Tell everyone else of the session close.
-	if(peer.socket){
-		peer.socket.disconnect();
+	if(socket){
+		socket.disconnect();
 	}
 };
 
 
 
-
-
-// EVENTS
-// Extend the function we do have.
-function Events(){
-
-	this.events = {};
-	this.callback = [];
-
-	// Return
-	this.on = function(name, callback){
-
-		// If there is no name
-		if(name===true){
-			callback.call(this);
-		}
-		else if(typeof(name)==='object'){
-			for(var x in name){
-				this.on(x, name[x]);
-			}
-		}
-		else if (name.indexOf(',')>-1){
-			for(var i=0,a=name.split(',');i<a.length;i++){
-				this.on(a[i],callback);
-			}
-		}
-		else {
-			console.log('Listening: ' + name);
-
-			if(callback){
-				// Set the listeners if its undefined
-				if(!this.events[name]){
-					this.events[name] = [];
-				}
-
-				// Append the new callback to the listeners
-				this.events[name].push(callback);
-			}
-		}
-
-		return this;
-	};
-
-	// One
-	// One is the same as On, but events are only fired once and must be reestablished afterwards
-	this.one = function(name, callback){
-		var self = this;
-		this.on(name, function once(){ self.off(name,once); callback.apply(self, arguments);} );
-	};
-
-	// Trigger Events defined on the publisher widget
-	this.emit = function(name,evt,callback){
-		var self = this;
-
-		if(!name){
-			throw name;
-		}
-		var preventDefault;
-		// define prevent default
-		evt = evt || {};
-		evt.preventDefault = function(){
-			preventDefault = true;
-		};
-
-		console.log('Triggered: ' + name);
-		if(this.events[name]){
-			this.events[name].forEach(function(o,i){
-				if(o){
-					o.call(self,evt,callback);
-				}
-			});
-		}
-		
-		// Defaults
-		if(!preventDefault && "default:"+name in this.events){
-			console.log('Triggered: default:' + name);
-			this.events["default:"+name].forEach(function(o,i){
-				if(o){
-					o.call(self,evt,callback);
-				}
-			});
-		}
-
-		return this;
-	};
-
-	// Remove a callback
-	this.off = function(name, callback){
-		if(this.events[name]){
-			for( var i=0; i< this.events[name].length; i++){
-				if(this.events[name][i] === callback){
-					this.events[name][i] = null;
-				}
-			}
-		}
-	};
-}
 
 
 
@@ -1042,44 +883,4 @@ function getSessionConstraints(sessionID){
 	return constraints;
 }
 
-
-
-function array_merge_unique(a,b){
-	for(var i=0;i<b.length;i++){
-		if(a.indexOf(b[i])===-1){
-			a.push(b[i]);
-		}
-	}
-	return a;
-}
-
-function isEmpty(obj){
-	for(var x in obj){
-		if(obj[x]){
-			return false;
-		}
-	}
-	return true;
-}
-
-function isEqual(a,b){
-	var x;
-	if( typeof(a) !== typeof(b) ){
-		return false;
-	}
-	else if( typeof(a) === 'object' ){
-		for(x in a){
-			if( !isEqual( a[x], b[x] ) ){
-				return false;
-			}
-		}
-		for(x in b){
-			if( !( x in a ) ){
-				return false;
-			}
-		}
-	}
-	return a === b;
-}
-
-})(document, window);
+});

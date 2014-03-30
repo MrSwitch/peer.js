@@ -10,7 +10,8 @@
     "connect": "~2.13.0"
   },
   "devDependencies": {
-    "shunt": "*"
+    "shunt": "*",
+    "requirejs": "~2.1.11"
   },
   "engines": {
     "node": "0.10.x",
