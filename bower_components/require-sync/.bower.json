@@ -1,0 +1,36 @@
+{
+  "name": "require-sync",
+  "main": "require-sync.js",
+  "homepage": "https://github.com/MrSwitch/require-sync.js",
+  "authors": [
+    "Andrew Dodson <sonofdod@gmail.com>"
+  ],
+  "description": "Synchronous browser resource loader for loading scripts inline. Not AMD but SMD (Synchronous Module Definition)",
+  "keywords": [
+    "require",
+    "define",
+    "amd",
+    "smd",
+    "script",
+    "loader",
+    "synchronous"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "_release": "90bb48a092",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "90bb48a092d7ada4a6f710f90490d2e529c0865a"
+  },
+  "_source": "git://github.com/MrSwitch/require-sync.js.git",
+  "_target": "*",
+  "_originalSource": "require-sync",
+  "_direct": true
+}
