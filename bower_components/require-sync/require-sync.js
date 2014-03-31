@@ -70,6 +70,12 @@
 
 
 	//
+	// Label this, used for sniffing the define method
+	// See https://github.com/amdjs/amdjs-api/wiki/AMD#defineamd-property-
+	window.define.amd = {};
+
+
+	//
 	// Resolve
 	// Find files and see if their dependencies have been resolved
 	//

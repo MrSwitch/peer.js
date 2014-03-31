@@ -10,14 +10,19 @@ require([
 		'utils/RTCSessionDescription',
 		'utils/events',
 
+		'utils/extend',
+
 		'utils/isEqual',
 		'utils/isEmpty',
+
+		'../bower_components/watch/src/watch',
 
 		'lib/featureDetect',
 		'lib/socket'
 	],
-	function(getUserMedia, PeerConnection, RTCSessionDescription, Events, isEqual, isEmpty, featureDetect, socket){
+	function(getUserMedia, PeerConnection, RTCSessionDescription, Events, extend, isEqual, isEmpty, Watch, featureDetect, socket){
 
+	var watch = Watch.watch;
 
 	var STUN_SERVER = "stun:stun.l.google.com:19302";
 
@@ -141,7 +146,8 @@ var peer = {
 
 		console.log("SEND: "+ name, data);
 
-		var recipient = data.to, channel = this.channels[recipient];
+		var recipient = data.to,
+			channel = this.channels[recipient];
 
 		if( recipient && channel && channel.readyState==="open"){
 			if(name){
@@ -353,15 +359,7 @@ var peer = {
 			Events.call(stream);
 
 			// Listen for changes in the constraints
-			stream.on('constraints:change', toggleLocalStream);
-
-			stream.on('close', function(){
-
-				console.log("stream closed: All connections are removed");
-				stream.constraints = {};
-				toggleLocalStream();
-
-			});
+			watch( stream.constraints, ['video','data'], toggleLocalStream );
 
 			// Peer Connection
 			// Initiate a local peer connection handler
@@ -819,37 +817,8 @@ function clearUpStreams(){
 
 		var stream = peer.streams[sessionID];
 
-		// If the stream is not active in a thread, lets kill em
-		if( isEmpty(constraints) ){
-
-			if(! isEqual(constraints, stream.constraints) ){
-				stream.emit('close');
-			}
-
-			return;
-		}
-
-
-		// Have the contraints changed for this stream?
 		// Update the existing constraints on this stream
-
-		var changed=false, prop;
-		for(prop in stream.constraints){
-			if(stream.constraints[prop] !== constraints[prop]){
-				changed = true;
-				stream.constraints[prop] = constraints[prop] || false;
-			}
-		}
-		for(prop in constraints){
-			if(!(prop in stream.constraints)){
-				changed = true;
-			}
-			stream.constraints[prop] = constraints[prop];
-		}
-		if(changed){
-			stream.emit("constraints:change");
-		}
-
+		extend( stream.constraints, constraints );
 	}
 }
 
@@ -873,10 +842,9 @@ function getSessionConstraints(sessionID){
 
 			// Loop through this threads credentials
 			for( prop in thread.constraints ){
-				// If the credential property is positive
-				if(thread.constraints[prop]){
-					constraints[prop] = thread.constraints[prop];
-				}
+
+				// If the credential property is positive use it otherwise use the default
+				constraints[prop] = thread.constraints[prop] || constraints[prop];
 			}
 		}
 	}

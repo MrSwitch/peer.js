@@ -1,0 +1,34 @@
+{
+  "name": "Watch.JS",
+  "homepage": "https://github.com/melanke/Watch.JS",
+  "authors": [
+    "Gil Lopes Bueno <melanke.hc@gmail.com>"
+  ],
+  "description": "watch the changes of any object or attribute",
+  "main": "src/watch.js",
+  "keywords": [
+    "watch",
+    "observe",
+    "changes",
+    "object",
+    "attribute"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "_release": "3e92a53a3b",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "3e92a53a3b9b852a3c0bf9f6c428760e0e14c150"
+  },
+  "_source": "git://github.com/melanke/Watch.JS.git",
+  "_target": "*",
+  "_originalSource": "watch",
+  "_direct": true
+}
