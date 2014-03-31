@@ -14,8 +14,8 @@ var shunt = require("shunt");
 // Minified CSS and Javascript files
 // Changed references to files in other projects to their absolute URL's
 shunt({
-	"../index.html" : "./index.html",
-	"../README.md" : "./index.html"
+	"./index.html" : "src/index.html",
+	"./README.md" : "src/index.html"
 },{
 
 	// Overrides the root of script and link tags in HTML,
@@ -29,14 +29,14 @@ shunt({
 
 shunt({
 	// Create files newFile=>Packages
-	"../bin/document.min.css" : "../../_packages/document.css",
-	"../bin/document.min.js" : "../../_packages/document.js",
-	"../bin/index.html" : "./index.html",
+	"./bin/document.min.css" : "../../_packages/document.css",
+	"./bin/document.min.js" : "../../_packages/document.js",
+	"./bin/index.html" : "src/index.html",
 
-	"../bin/peer.js" : "peer.js",
+	"./bin/peer.js" : "src/peer.js",
 
-	"../bin/app.js" : "./app.js",
-	"../bin/peer-server.js" : "./peer-server.js"
+	"./bin/app.js" : "src/app.js",
+	"./bin/peer-server.js" : "src/peer-server.js"
 }, {
 	// This is the root directory on the local filesystem where root referenced scripts can be found.
 	// For instance, <script src="/vendor/jquery.js"></script> existed, and was pointing to a file outside this project*
