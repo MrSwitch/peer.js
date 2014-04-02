@@ -11,6 +11,8 @@ define(function(){
 		this.callback = [];
 
 		// Return
+		// @param event_name string
+		// @param callback function
 		this.on = function(name, callback){
 
 			// If there is no name
@@ -74,7 +76,11 @@ define(function(){
 				if(this.events[_name]){
 					this.events[_name].forEach(function(o,i){
 						if(o){
-							o.call(self,evt,callback);
+							var args = [evt, callback];
+							if( _name === '*' ){
+								args.unshift(name);
+							}
+							o.apply(self,args);
 						}
 					});
 				}

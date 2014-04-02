@@ -18,9 +18,11 @@ require([
 		'../bower_components/watch/src/watch',
 
 		'lib/featureDetect',
-		'lib/socket'
+		'lib/socket',
+
+		'models/stream'
 	],
-	function(getUserMedia, PeerConnection, RTCSessionDescription, Events, extend, isEqual, isEmpty, Watch, featureDetect, socket){
+	function(getUserMedia, PeerConnection, RTCSessionDescription, Events, extend, isEqual, isEmpty, Watch, featureDetect, socket, Stream){
 
 	var watch = Watch.watch;
 
@@ -43,11 +45,7 @@ var peer = {
 		});
 
 		// Message
-		socket.on('*', function(data){
-
-			// propogate messages from the socket server to the app
-			self.emit(data.type, data);
-		});
+		socket.on('*', self.emit.bind(self) );
 
 		// Loaded
 		if(callback){
@@ -147,13 +145,13 @@ var peer = {
 		console.log("SEND: "+ name, data);
 
 		var recipient = data.to,
-			channel = this.channels[recipient];
+			streams = this.streams[recipient];
 
-		if( recipient && channel && channel.readyState==="open"){
+		if( recipient && streams && streams.channel && streams.channel.readyState==="open"){
 			if(name){
 				data.type = name;
 			}
-			channel.send(JSON.stringify(data));
+			streams.channel.send(JSON.stringify(data));
 			return;
 		}
 
@@ -311,255 +309,37 @@ var peer = {
 
 		var self = this;
 
-		// Operations
-		// Once the RTCPeerConnection object has been initialized, for every call to createOffer, setLocalDescription, createAnswer and setRemoteDescription; execute the following steps:
-		// Append an object representing the current call being handled (i.e. function name and corresponding arguments) to the operations array.
-		// If the length of the operations array is exactly 1, execute the function from the front of the queue asynchronously.
-		// When the asynchronous operation completes (either successfully or with an error), remove the corresponding object from the operations array. 
-		//  - After removal, if the array is non-empty, execute the first object queued asynchronously and repeat this step on completion.
-
-
-		var operations = [];
-		function operation(func){
-
-			// Add operations to the list
-			if(func){
-				operations.push(func);
-			}
-			else{
-				console.log("STATE:", pc.signalingState);
-			}
-
-			// Are we in a stable state?
-			if(pc.signalingState==='stable'){
-				// Pop the operation off the front.
-				var op = operations.shift();
-				if(op){
-					op();
-				}
-			}
-			else{
-				console.log("PENDING:", operations);
-			}
+		if(!id){
+			throw 'streams(): Expecting an ID';
 		}
 		
-		// stream
-		var stream = this.streams[id] || (this.streams[id] = {constraints:constraints}),
-			pc = stream.pc;
+		// Get or set a stream
+		var stream = this.streams[id];
 
+		if(!stream){
+			//
+			// Create a new stream
+			//
+			stream = this.streams[id] = Stream(id, constraints, this.stun_server, self.send.bind(self) );
 
-		var config = { 'optional': [], 'mandatory': {
-						'OfferToReceiveAudio': true,
-						'OfferToReceiveVideo': true }};
+			// Output pupblished events from this stream
+			stream.on('*', self.emit.bind(self) );
 
-
-		if(!pc){
-
-			// Extend the stream with events
-			Events.call(stream);
-
-			// Listen for changes in the constraints
-			watch( stream.constraints, ['video','data'], toggleLocalStream );
-
-			// Peer Connection
-			// Initiate a local peer connection handler
-			var pc_config = {"iceServers": [{"url": self.stun_server}]},
-				pc_constraints = {"optional": [{"DtlsSrtpKeyAgreement": true}]};
-	//				stun = local ? null : Peer.stun_server;
-
-			try{
-				//
-				// Reference this connection
-				//
-				stream.pc = pc = new PeerConnection(pc_config, pc_constraints);
-
-				pc.onicecandidate = function(e){
-					var candidate = e.candidate;
-					if(candidate){
-						self.send({
-							type : 'stream:candidate',
-							data : {
-								label: candidate.label||candidate.sdpMLineIndex,
-								candidate: candidate.toSdp ? candidate.toSdp() : candidate.candidate
-							},
-							to : id
-						});
-					}
-				};
-			}catch(e){
-				console.error("Failed to create PeerConnection, exception: " + e.message);
-				return;
-			}
-
-			pc.onsignalingstatechange = function(e){
-				operation();
-			};
-
-
-			//pc.addEventListener("addstream", works in Chrome
-			//pc.onaddstream works in FF and Chrome
-			pc.onaddstream = function(e){
-				e.from = id;
-				self.emit('media:connect', e);
-			};
-
-			// pc.addEventListener("removestream", works in Chrome
-			// pc.onremovestream works in Chrome and FF.
-			pc.onremovestream = function(e){
-				e.from = id;
-				self.emit('media:disconnect', e);
-			};
-
+			// Control
 			// This should now work, will have to reevaluate
-			self.on('localmedia:connect', toggleLocalStream);
-			self.on('localmedia:disconnect', toggleLocalStream);
+			self.on('localmedia:connect', stream.addStream);
+			self.on('localmedia:disconnect', stream.removeStream);
 
-			if(!!self.localmedia){
-				toggleLocalStream();
+			//
+			// Add the current Stream
+			if(self.localmedia){
+				stream.addStream(self.localmedia);
 			}
-
-			pc.ondatachannel = function(e){
-				setupDataChannel(e.channel);
-			};
-
-			pc.onnegotiationneeded = function(e){
-				pc.createOffer(function(session){
-					pc.setLocalDescription(session, function(){
-						self.send({
-							type : "stream:offer",
-							to : id,
-							data : {
-								offer : pc.localDescription
-							}
-						});
-					}, errorHandler);
-
-				}, null, config);
-			};
 		}
 
-
-		// Is this an offer or an answer?
-		// No data is needed to make an offer
-		// Making an offer?
-		if(!offer){
-
-			// Create a datachannel
-			// This initiates the onnegotiationneeded event
-			var channel = pc.createDataChannel('data');
-			setupDataChannel(channel);
-		}
-		// No, we're processing an offer to make an answer then
-		else{
-
-			// Set the remote offer information
-			pc.setRemoteDescription(new RTCSessionDescription(offer), function(){
-				pc.createAnswer(function(session){
-					pc.setLocalDescription(session, function(){
-						self.send({
-							type : "stream:answer",
-							to : id,
-							data : pc.localDescription
-						});
-					},errorHandler);
-				}, null, config);
-			});
-		}
-
-
-		return stream;
-
-		function errorHandler(e){
-			console.log("SET Description fail triggered:",e);
-		}
-
-		//
-		function setupDataChannel(channel){
-
-			// Store
-			self.channels[id] = channel;
-
-			// Broadcast
-			channel.onopen = function(e){
-				e.id = id;
-				self.emit("channel:connect", e);
-			};
-			channel.onmessage = function(e){
-				e.id = id;
-				self.emit("channel:message", e);
-				messageHandler( e.data, id );
-			};
-			channel.onerror = function(e){
-				e.id = id;
-				self.emit("channel:error", e);
-			};
-		}
-
-		function toggleLocalStream(){
-
-			var media = peer.localmedia;
-
-			if(pc.readyState==='closed'){
-				console.log("PC:connection closed, can't add stream");
-				return;
-			}
-
-
-			// Do the constraints allow for media to be added?
-			if(!stream.constraints.video||!media){
-
-				// We should probably remove the stream here
-				pc.getLocalStreams().forEach(function(media){
-					operation(function(){
-						console.log("PC:removing local media", media);
-						pc.removeStream(media);
-					});
-				});
-
-				return;
-			}
-
-			console.log("PC:adding local media");
-
-			// Set up listeners when tracks are removed from this stream
-			// Aka if the streams loses its audio/video track we want this to update this peer connection stream
-			// For some reason it doesn't... which is weird
-			// TODO: remove the any tracks from the stream here if this is not a regular call.
-			operation(function(){
-				pc.addStream(media);
-			});
-
-			// Add event listeners to stream
-			media.addEventListener('addtrack', function(e){
-				// reestablish a track
-				console.log(e);
-				// Swtich out current stream with new stream
-				//var a = pc.getLocalStreams();
-				//console.log(a);
-			});
-
-			// Remove track
-			media.addEventListener('removetrack', function(e){
-				//var a = pc.getLocalStreams();
-				console.log(e);
-			});
-
-		}
-
-	},
-
-	// CHANNELS
-	// Trigger messages via channels to specific users
-	channels : {},
-	channel : function(id, message){
-		// Get the peer connection
-		var channel = this.channels[id];
-		if(!channel){
-			// there is no open channel for this session
-			return false;
-		}
-		channel.send(message);
-		return true;
+		// intiiate the PeerConnection controller
+		// Add the offer to the stream
+		stream.open(offer);
 	}
 };
 
@@ -777,7 +557,7 @@ peer.on('channel:connect', function(e){
 peer.on('channel:message', function(e){
 	//
 	// Process 
-	// console.log('channel:message',e);
+	messageHandler(e.data, e.id);
 });
 
 
