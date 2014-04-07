@@ -306,7 +306,7 @@ var peer = {
 	//
 	stream : function( id, constraints, offer ){
 
-		console.log("stream()", arguments);
+		console.log("stream", arguments);
 
 		var self = this;
 

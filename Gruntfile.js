@@ -7,12 +7,22 @@ module.exports = function(grunt) {
         options: {
           findNestedDependencies: true,
           baseUrl: './src/',
-          wrap: true,
           preserveLicenseComments: false,
           optimize: 'uglify2',
           mainConfigFile: './src/require-config.js',
           name: 'peer',
           out: 'dist/thread.js',
+          wrap: {
+              start: "(function(window,document,navigator){",
+              end: "})(window,document,navigator);"
+          },
+          //A function that will be called for every write to an optimized bundle
+          //of modules. This allows transforms of the content before serialization.
+          onBuildWrite: function (moduleName, path, contents) {
+              //Always return a value.
+              //This is just a contrived example.
+              return contents.replace(/console\.log\((.*?)\)/g, '');
+          },
           onModuleBundleComplete: function (data) {
             var fs = require('fs'),
               amdclean = require('amdclean'),
