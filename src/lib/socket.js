@@ -3,7 +3,7 @@
 // Socket creates a send/receive protocol with the server
 // Currently this abstracts Socket.IO
 //
-define(['utils/events'], function(Events){
+define(['utils/events', 'utils/getScript'], function(Events, getScript){
 
 	//
 	var socket = null;
@@ -57,22 +57,7 @@ define(['utils/events'], function(Events){
 
 		// Load SocketIO if it doesn't exist
 		if(typeof(io)==='undefined'){
-
-			// Load socketIO
-			var script = document.createElement('script');
-			script.src = (ws||'') + "/socket.io/socket.io.js";
-			script.onreadystatechange= function () {
-				if (this.readyState == 'complete') {
-					onload();
-				}
-			};
-			script.onload = onload;
-
-			var ref = document.getElementsByTagName('script')[0];
-			var parent = ref.parentNode;
-			if(parent){
-				parent.insertBefore(script,ref);
-			}
+			getScript((ws||'') + "/socket.io/socket.io.js", onload);
 		}
 	};
 
