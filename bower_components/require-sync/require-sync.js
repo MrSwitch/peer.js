@@ -26,10 +26,19 @@
 	var REQUIRE_MODULE = 'data-requiremodule';
 
 	//
+	// Optional overrides
+	//
+	var options = {};
+
+	//
 	// GetScript
 	//
 	function getScript(script){
-		document.write('<script src="'+script+'.js" '+ REQUIRE_MODULE +'="'+script+'"></script>');
+		var path = script;
+		if( options && options.paths && script in options.paths ){
+			path = options.paths[script];
+		}
+		document.write('<script src="'+path+'.js" '+ REQUIRE_MODULE +'="'+script+'"></script>');
 	}
 
 	//
@@ -135,5 +144,13 @@
 	if(script){
 		getScript(script);
 	}
+
+
+	//
+	// Config
+	//
+	window.require.config = function(_options){
+		options = _options;
+	};
 
 })(this);

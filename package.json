@@ -10,8 +10,13 @@
     "connect": "~2.13.0"
   },
   "devDependencies": {
-    "shunt": "*",
-    "requirejs": "~2.1.11"
+    "shunt": ">= 0.1.2",
+    "requirejs": "~2.1.11",
+    "grunt": "~0.4.4",
+    "grunt-contrib-jshint": "~0.10.0",
+    "grunt-contrib-watch": "~0.6.1",
+    "amdclean": "^1.5.0",
+    "grunt-contrib-requirejs": "^0.4.3"
   },
   "engines": {
     "node": "0.10.x",
