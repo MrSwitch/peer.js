@@ -6,7 +6,7 @@
     "start": "node src/app.js"
   },
   "dependencies": {
-    "socket.io": "0.9.6",
+    "socket.io": "^0.9.16",
     "connect": "~2.13.0"
   },
   "devDependencies": {

@@ -6,6 +6,7 @@ define(function(){
 		// Load socketIO
 		var script = document.createElement('script');
 		script.src = url;
+		script.async = true;
 		script.onreadystatechange= function () {
 			if (this.readyState == 'complete') {
 				callback();
