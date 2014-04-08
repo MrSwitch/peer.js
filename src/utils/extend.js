@@ -2,27 +2,17 @@
 // Extend
 //
 define(function(){
-	return function extend(a,b){
-		var x,r = {};
-		if( typeof(a) === 'object' && typeof(b) === 'object' ){
-			for(x in a){
+	return function extend(r, replace){
+		var x, a = Array.prototype.splice.call(arguments,1);
+		for(var i=0;i<a.length;i++){
+			replace = a[i];
+			if( typeof(replace) !== 'object' ){
+				continue;
+			}
+			for(x in replace){
 				//if(a.hasOwnProperty(x)){
-				r[x] = a[x];
-				if(x in b){
-					r[x] = extend( a[x], b[x]);
-				}
-				//}
+				r[x] = replace[x];
 			}
-			for(x in b){
-				//if(b.hasOwnProperty(x)){
-				if(!(x in a)){
-					r[x] = b[x];
-				}
-				//}
-			}
-		}
-		else{
-			r = b;
 		}
 		return r;
 	};
