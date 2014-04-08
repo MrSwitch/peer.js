@@ -102,73 +102,75 @@ else{
 <p><b>connect video</b>. The function below addMedia(element) invokes gUM (getUserMedia) function and adds our local stream to peerjs.</p>
 
 <script class="pre">
-function toggleMedia(){
+	function toggleMedia(){
 
-	// Stop the stream
-	if(peer.localmedia){
-		peer.localmedia.stop();
-		return;
+		// Stop the stream
+		if(peer.localmedia){
+			peer.localmedia.stop();
+			return;
+		}
+
+		// Add media triggers the getUserMedia method
+		// Then calls the callback showLocalStream 
+		peer.addMedia(showLocalStream);	
 	}
-
-	peer.addMedia(showLocalStream);	
-}
 </script>
 
 <p>Toggle Mute on the local stream</p>
 <script class="pre">
-var audioTrack;
-function toggleMute(){
+	var audioTrack;
+	function toggleMute(){
 
-	var stream = peer.localmedia;
+		var stream = peer.localmedia;
 
-	if(!stream){
-		// First you have to connect media
-		return;
+		if(!stream){
+			// First you have to connect media
+			return;
+		}
+
+		var tracks = stream.getAudioTracks();
+		if(tracks.length){
+			audioTrack = tracks[0];
+			console.log("Removed track", audioTrack);
+			stream.removeTrack(audioTrack);
+		}
+		else{
+			console.log("Restored track", audioTrack);
+			stream.addTrack(audioTrack);
+		}
+
+		// Show the changed stream
+		showLocalStream(stream);
 	}
-
-	var tracks = stream.getAudioTracks();
-	if(tracks.length){
-		audioTrack = tracks[0];
-		console.log("Removed track", audioTrack);
-		stream.removeTrack(audioTrack);
-	}
-	else{
-		console.log("Restored track", audioTrack);
-		stream.addTrack(audioTrack);
-	}
-
-	// Show the changed stream
-	showLocalStream(stream);
-}
 </script>
 
 <p>Toggle Picture on local media stream</p>
 
 <script class="pre">
-var videoTrack;
-function togglePicture(){
+	var videoTrack;
+	function togglePicture(){
 
-	var stream = peer.localmedia;
+		var stream = peer.localmedia;
 
-	if(!stream){
-		// First you have to connect media
-		return;
+		if(!stream){
+			// First you have to connect media
+			return;
+		}
+
+		var tracks = stream.getVideoTracks();
+		if(tracks.length){
+			videoTrack = tracks[0];
+			console.log("Removed track", videoTrack);
+			stream.removeTrack(videoTrack);
+		}
+		else{
+			console.log("Restored track", videoTrack);
+			stream.addTrack(videoTrack);
+		}
+
+		// Show the changed stream
+		showLocalStream(stream);
 	}
-
-	var tracks = stream.getVideoTracks();
-	if(tracks.length){
-		videoTrack = tracks[0];
-		console.log("Removed track", videoTrack);
-		stream.removeTrack(videoTrack);
-	}
-	else{
-		console.log("Restored track", videoTrack);
-		stream.addTrack(videoTrack);
-	}
-
-	// Show the changed stream
-	showLocalStream(stream);
-}
 </script>
 
 
@@ -178,329 +180,339 @@ function togglePicture(){
 
 <script class="pre">
 
-////////////////////////////////////////
-// CREATE/JOIN rooms
-// Listen for change events in the URI-Fragment to join different groups of people
+	////////////////////////////////////////
+	// CREATE/JOIN rooms
+	// Listen for change events in the URI-Fragment to join different groups of people
 
-var _threadId = null;
+	var _threadId = null;
 
-function onhashchange(){
+	function onhashchange(){
 
-	var threadId = window.location.hash.replace(/^#/,'') || null;
+		var threadId = window.location.hash.replace(/^#/,'') || null;
 
-	if( threadId ){
+		if( threadId ){
 
-		// Joins the thread, defined by the location.hash
-		// Essentially this sets listeners, subscribing this user to any publish events from others containing the same thread ID.
-		// At the same time it broadcasts a "join" event to others listening that this user has joined.
-		// Also the final parameter says what media this user is accepting
-		peer.thread( threadId, {video:true} );		
+			// Joins the thread, defined by the location.hash
+			// Essentially this sets listeners, subscribing this user to any publish events from others containing the same thread ID.
+			// At the same time it broadcasts a "join" event to others listening that this user has joined.
+			// Also the final parameter says what media this user is accepting
+			peer.thread( threadId, {video:true} );		
+		}
+		
+		if(!threadId && _threadId){
+
+			// Kill the last thread
+			peer.thread( _threadId, false);
+		}
+
+		// Have we got a new room, 
+		// Is there an old thread
+		else if( _threadId && _threadId !== threadId ){
+
+			// We only want to exchange video with the thread as described by the URI Document Fragment
+			// Update the thread settings, to share just 'data'
+			// This disconnects all sessions media which is being transported, but keeps them open to messgages
+			peer.thread( _threadId, {video:false} );
+
+			// Alternatively: unsubscribe from the thread by removing privileges
+			// peer.thread( threadId, null );
+		}
+
+		// Reset the room
+		_threadId = threadId;
+
 	}
-	
-	if(!threadId && _threadId){
 
-		// Kill the last thread
-		peer.thread( _threadId, false);
+	window.addEventListener('hashchange', onhashchange);
+
+	if(window.location.hash){
+		onhashchange();
 	}
-
-	// Have we got a new room, 
-	// Is there an old thread
-	else if( _threadId && _threadId !== threadId ){
-
-		// We only want to exchange video with the thread as described by the URI Document Fragment
-		// Update the thread settings, to share just 'data'
-		// This disconnects all sessions media which is being transported, but keeps them open to messgages
-		peer.thread( _threadId, {video:false} );
-
-		// Alternatively: unsubscribe from the thread by removing privileges
-		// peer.thread( threadId, null );
-	}
-
-	// Reset the room
-	_threadId = threadId;
-
-}
-
-window.addEventListener('hashchange', onhashchange);
-
-if(window.location.hash){
-	onhashchange();
-}
 
 
 </script>
 
+<h2>Event handlers</p>
+
+<p>Web socket events when a client connects to the server</p>
 
 <script>
 
-////////////////////////////////////////
-// Event handlers
-////////////////////////////////////////
+	////////////////////////////////////////
+	// Event handlers
+	////////////////////////////////////////
 
 
-// Session connect
-// This users session has connected
-peer.on( 'socket:connect', function(e){
+	// Session connect
+	// This users session has connected
+	peer.on( 'socket:connect', function(e){
 
-	// Connected
+		// Connected
 
-	/////////////////////
-	// Behind the scenes:
-	// Publshes any defered messages
-	/////////////////////
-});
+		/////////////////////
+		// Behind the scenes:
+		// Publshes any defered messages
+		/////////////////////
+	});
 
-// Session Disconnect
-// This users session has disconnected
-peer.on( 'socket:disconnect', function(e){
+	// Session Disconnect
+	// This users session has disconnected
+	peer.on( 'socket:disconnect', function(e){
 
-	// Disconnected
+		// Disconnected
 
-	/////////////////////
-	// Behind the scenes:
-	// Periodically tries to reestablish a connection
-	/////////////////////
-});
+		/////////////////////
+		// Behind the scenes:
+		// Periodically tries to reestablish a connection
+		/////////////////////
+	});
+</script>
 
+<p>Socket events when a users friend comes online</p>
 
-// Friend connect
-// A frienda session is connected
-peer.on( 'socket:watch', function(e){
-
-	// Connected
-
-	/////////////////////
-	// Prerequisites: Having identified this contact via peer.watch( [ID, ...] )
-	// Triggered on peer.watch matches an existing session / or thirdparty ID's themselves with peer.tag([ID, ...]);
-	/////////////////////
-});
+<script>
 
 
-// Friend Disconnect
-// A friends session has disconnected
-peer.on( 'socket:watch', function(e){
+	// Friend connect
+	// A frienda session is connected
+	peer.on( 'socket:watch', function(e){
 
-	// Disconnected
+		// Connected
 
-	/////////////////////
-	// Behind the scenes:
-	// Send a request for the friends status 'friend:status'
-	/////////////////////
-});
-
-// (OPTIONAL)
-// Invoking a call is as simple as creating a new thread and sending an arbitary event to a friend
-// e.g....
-// peer.send( 'invite:connect', { to : friendID, data: ThreadID }, handler );
-// Example handler
-peer.on( 'invite:connect', function(e, callback){
-	// Use the threadID from the event to join the thread peer.thread( threadID, permissions )
-	// Notify the user of the incoming call return a response which the callers handler understands
-	// Probably want to have a timeout, so that if the other party doesn't respond in a minute it returns a cancel.
-});
+		/////////////////////
+		// Prerequisites: Having identified this contact via peer.watch( [ID, ...] )
+		// Triggered on peer.watch matches an existing session / or thirdparty ID's themselves with peer.tag([ID, ...]);
+		/////////////////////
+	});
 
 
+	// Friend Disconnect
+	// A friends session has disconnected
+	peer.on( 'socket:watch', function(e){
 
-// Thread connect
-// A member has joined a thread
-peer.on( 'thread:connect', function(e){
+		// Disconnected
 
-	// A member has joined the thread, peer.thread( thireadID, constraints );
-	// e.thread, e.from, e.constraints;
+		/////////////////////
+		// Behind the scenes:
+		// Send a request for the friends status 'friend:status'
+		/////////////////////
+	});
 
-	/////////////////////
-	// Behind the scenes:
-	// Return a thread:connect event directly to the user, including SDP connection data if none was provided
-	// (recommended) send a request for the friends info, 'friend:info', incase the user is unknown
-	/////////////////////
-});
-
-
-// Thread change
-// A member has changed their permissions
-peer.on( 'thread:change', function(e){
-
-	// A user has changed their permissions to send and recieve video in this thread 
-
-	/////////////////////
-	// Behind the scenes:
-	// PeerConnection has changed, remove/add media streams as appropriate.
-	/////////////////////
-});
-
-// Thread connect
-// A member has left a thread
-peer.on( 'thread:disconnect', function(e){
-
-	// A member has joined the thread
-	// e.thread, e.from;
-
-	/////////////////////
-	// Behind the scenes:
-	// Determine if this session is associated with other open threads.
-	// If not then disconnect Peer Connection, otherwise revaluate permissions
-	///////////////////////
-});
+	// (OPTIONAL)
+	// Invoking a call is as simple as creating a new thread and sending an arbitary event to a friend
+	// e.g....
+	// peer.send( 'invite:connect', { to : friendID, data: ThreadID }, handler );
+	// Example handler
+	peer.on( 'invite:connect', function(e, callback){
+		// Use the threadID from the event to join the thread peer.thread( threadID, permissions )
+		// Notify the user of the incoming call return a response which the callers handler understands
+		// Probably want to have a timeout, so that if the other party doesn't respond in a minute it returns a cancel.
+	});
 
 
 
-// Media
-// A member of a thread has shared their video stream
-peer.on( 'media:connect', function(e){
+	// Thread connect
+	// A member has joined a thread
+	peer.on( 'thread:connect', function(e){
 
-	// Create the video tag from the stream
-	var vid = addVideoElement(e.stream);
+		// A member has joined the thread, peer.thread( thireadID, constraints );
+		// e.thread, e.from, e.constraints;
 
-	// Tag it so that we can remove it later
-	vid.id = "vid"+e.from;
-
-	/////////////////////
-	// Behind the scenes:
-	// This is triggered by PeerConnection
-	///////////////////////
-});
+		/////////////////////
+		// Behind the scenes:
+		// Return a thread:connect event directly to the user, including SDP connection data if none was provided
+		// (recommended) send a request for the friends info, 'friend:info', incase the user is unknown
+		/////////////////////
+	});
 
 
-// Media Removed
-// A member of a thread has removed their media
-peer.on( 'media:disconnect', function(e){
+	// Thread change
+	// A member has changed their permissions
+	peer.on( 'thread:change', function(e){
 
-	// Find this
-	var vid = document.getElementById("vid"+e.from);
+		// A user has changed their permissions to send and recieve video in this thread 
 
-	if(vid&&vid.parentNode){
-		vid.parentNode.removeChild(vid);
+		/////////////////////
+		// Behind the scenes:
+		// PeerConnection has changed, remove/add media streams as appropriate.
+		/////////////////////
+	});
+
+	// Thread connect
+	// A member has left a thread
+	peer.on( 'thread:disconnect', function(e){
+
+		// A member has joined the thread
+		// e.thread, e.from;
+
+		/////////////////////
+		// Behind the scenes:
+		// Determine if this session is associated with other open threads.
+		// If not then disconnect Peer Connection, otherwise revaluate permissions
+		///////////////////////
+	});
+
+
+
+	// Media
+	// A member of a thread has shared their video stream
+	peer.on( 'media:connect', function(e){
+
+		// Create the video tag from the stream
+		var vid = addVideoElement(e.stream);
+
+		// Tag it so that we can remove it later
+		vid.id = "vid"+e.from;
+
+		/////////////////////
+		// Behind the scenes:
+		// This is triggered by PeerConnection
+		///////////////////////
+	});
+
+
+	// Media Removed
+	// A member of a thread has removed their media
+	peer.on( 'media:disconnect', function(e){
+
+		// Find this
+		var vid = document.getElementById("vid"+e.from);
+
+		if(vid&&vid.parentNode){
+			vid.parentNode.removeChild(vid);
+		}
+	});
+
+	//
+	// Fired when the local media is disconnected
+	peer.on( 'localmedia:disconnect', function(){
+		// Set the src='', to remove the last video image from the VideoTag
+		document.getElementById('myvideo').src = '';
+
+		// Then, remove the attribute
+		// this will now remove any styles we defined on video[src], aka the mirror flip effect.
+		document.getElementById('myvideo').removeAttribute('src');
+	});
+
+
+	//
+	// DATACHANNEL
+	//
+	peer.on('channel:connect', function(e){
+		// A datachannel has been siccessfully created with user e.id
+
+	});
+
+
+	peer.on('channel:message', function(e){
+		// A message has been sent over the datachannel from user e.id
+		console.log(e);
+	});
+
+
+	// Listen to incoming messages
+	// This could be to populate the threads
+	peer.on( 'message', function(e){
+		/**
+		 * The event
+		 * {
+		 * 		from : Session ID (string),
+		 * 		threadID : Thread ID (optional),
+		 * 		data : Data | String
+		 * }
+		 */
+	});
+
+
+
+
+	function addVideoElement(stream){
+
+		addStreamListeners(stream);
+
+		var url = window.URL.createObjectURL(stream);
+		var vid = document.createElement('video');
+		vid.style.background = '-webkit-canvas(loading) no-repeat center center';
+		vid.src= url;
+		vid.autoplay = true;
+
+		// QuerySelector
+		document.querySelector('div.demo').appendChild(vid);
+
+		vid.play();
+
+		return vid;
 	}
-});
 
-//
-// Fired when the local media is disconnected
-peer.on( 'localmedia:disconnect', function(){
-	// Set the src='', to remove the last video image from the VideoTag
-	document.getElementById('myvideo').src = '';
-
-	// Then, remove the attribute
-	// this will now remove any styles we defined on video[src], aka the mirror flip effect.
-	document.getElementById('myvideo').removeAttribute('src');
-});
-
-
-//
-// DATACHANNEL
-//
-peer.on('channel:connect', function(e){
-	// A datachannel has been siccessfully created with user e.id
-
-});
-
-
-peer.on('channel:message', function(e){
-	// A message has been sent over the datachannel from user e.id
-	console.log(e);
-});
-
-
-// Listen to incoming messages
-// This could be to populate the threads
-peer.on( 'message', function(e){
-	/**
-	 * The event
-	 * {
-	 * 		from : Session ID (string),
-	 * 		threadID : Thread ID (optional),
-	 * 		data : Data | String
-	 * }
-	 */
-});
-
-
-
-
-function addVideoElement(stream){
-
-	addStreamListeners(stream);
-
-	var url = window.URL.createObjectURL(stream);
-	var vid = document.createElement('video');
-	vid.style.background = '-webkit-canvas(loading) no-repeat center center';
-	vid.src= url;
-	vid.autoplay = true;
-
-	// QuerySelector
-	document.querySelector('div.demo').appendChild(vid);
-
-	vid.play();
-
-	return vid;
-}
-
-function addStreamListeners(stream){
-	stream.onerror = function(e){
-		console.log("STREAM ERROR", e);
-	};
-
-	stream.getVideoTracks().forEach(addTrackEvent);
-	stream.getAudioTracks().forEach(addTrackEvent);
-
-	function addTrackEvent(track){
-		track.onerror = function(e){
+	function addStreamListeners(stream){
+		stream.onerror = function(e){
 			console.log("STREAM ERROR", e);
 		};
-	};
-}
 
-function showLocalStream(stream){
+		stream.getVideoTracks().forEach(addTrackEvent);
+		stream.getAudioTracks().forEach(addTrackEvent);
 
-	addStreamListeners(stream);
+		function addTrackEvent(track){
+			track.onerror = function(e){
+				console.log("STREAM ERROR", e);
+			};
+		};
+	}
 
-	// Attach our stream to the video tab above.
-	var elm = document.getElementById('myvideo');
-	elm.src = window.URL.createObjectURL(stream);
+	function showLocalStream(stream){
 
-	// Ensure this is muted, we dont want to hear ourselves
-	elm.muted = true;
+		addStreamListeners(stream);
 
-	// Play content, not sure both are required, but hey
-	elm.autoplay = true;
-	elm.play();
+		// Attach our stream to the video tab above.
+		var elm = document.getElementById('myvideo');
+		elm.src = window.URL.createObjectURL(stream);
 
-	// Attach the stream to the UI
-	elm.onerror = function(event) {
-		stream.stop();
-	};
-}
+		// Ensure this is muted, we dont want to hear ourselves
+		elm.muted = true;
+
+		// Play content, not sure both are required, but hey
+		elm.autoplay = true;
+		elm.play();
+
+		// Attach the stream to the UI
+		elm.onerror = function(event) {
+			stream.stop();
+		};
+	}
 
 </script>
 
 
+<p>Clients connect by passing their PeerConnection credentials together, we can listen to these stream messages like so, however there's no need too.</p>
+
 <script>
 
-////////////////////////////
-// BEHIND THE SCENES
-////////////////////////////
+	////////////////////////////
+	// BEHIND THE SCENES
+	////////////////////////////
 
-// Having received a thread:connect
-// The pc:offer will be sent by the person with the largest sessionID number to the other
-// peer.send("pc:offer", { data: sdp, to: sessionID, scope : ['video'] }, handler )
+	// Having received a thread:connect
+	// The pc:offer will be sent by the person with the largest sessionID number to the other
+	// peer.send("pc:offer", { data: sdp, to: sessionID, scope : ['video'] }, handler )
 
-// The recipient will handle the resposne in the followign manner
-peer.on('stream:offer', function(e, handler){
-	// Is this a recognized thread?
-	// Determine whether to add video to this session by looking at the scopes in both parties threads.
-	// Return the pc:answer sdp via the handler
-});
+	// The recipient will handle the resposne in the followign manner
+	peer.on('stream:offer', function(e, handler){
+		// Is this a recognized thread?
+		// Determine whether to add video to this session by looking at the scopes in both parties threads.
+		// Return the pc:answer sdp via the handler
+	});
 
-// The recipient will handle the resposne in the followign manner
-peer.on('stream:answer', function(e, handler){
-	// Is this a recognized thread?
-	// Determine whether to add video to this session by looking at the scopes in both parties threads.
-	// Return the pc:answer sdp via the handler
-});
+	// The recipient will handle the resposne in the followign manner
+	peer.on('stream:answer', function(e, handler){
+		// Is this a recognized thread?
+		// Determine whether to add video to this session by looking at the scopes in both parties threads.
+		// Return the pc:answer sdp via the handler
+	});
 
-// The pc connection triggers 'pc:candidate' events, which trigger the following events
-peer.on('stream:candidate', function(e){
-	// Do something
-});
+	// The pc connection triggers 'pc:candidate' events, which trigger the following events
+	peer.on('stream:candidate', function(e){
+		// Do something
+	});
 
 </script>
 
@@ -510,12 +522,16 @@ peer.on('stream:candidate', function(e){
 <p>Lastly, because chatting to yourself can bring about men in white coats, i've added a link to share the page with friends (to test you can just open in a new tab).</p>
 
 <script class="pre">
+	// Share your current Room with another user
 	var link = document.getElementById('chat-room-link');
 	link.innerHTML = window.location.href;
 	link.href = window.location.href;
 </script>
 
-<p>[Optionally]. If the user-agent doesn't support WebRTC then lets so something</p>
+
+<h2>Misc</h2>
+
+<h3>Browser support</h3>
 
 <script class="pre">
 	if(!peer.support.rtc){
@@ -523,18 +539,22 @@ peer.on('stream:candidate', function(e){
 	}
 </script>
 
+<h3>"Start camera"</h3>
+<p>Create the background text on the Video Element</h3>
+
+<script class="pre">
+	if(document.getCSSCanvasContext){
+		var ctx = document.getCSSCanvasContext("2d", "videochat", 100, 38);
+		ctx.lineWidth=1;
+		ctx.fillStyle="#444444";
+		ctx.lineStyle="#000000";
+		ctx.font="18px sans-serif";
+		ctx.fillText("start camera", 0, 16);
+		ctx.fillText("[click]", 30, 35);
+	}
+</script>
 
 <script>
-if(document.getCSSCanvasContext){
-	var ctx = document.getCSSCanvasContext("2d", "videochat", 100, 38);
-	ctx.lineWidth=1;
-	ctx.fillStyle="#444444";
-	ctx.lineStyle="#000000";
-	ctx.font="18px sans-serif";
-	ctx.fillText("start camera", 0, 16);
-	ctx.fillText("[click]", 30, 35);
-}
-
 var msg_box = document.querySelector('textarea');
 function message(msg, obj){
 	msg_box.innerHTML += msg + " (thread:"+(obj.thread||'')+",from:"+obj.from+")\n";
