@@ -22,7 +22,7 @@ define([
 	var media;
 
 
-	return function( id, constraints, STUN_SERVER, handler ){
+	return function( id, constraints, STUN_SERVER, peer ){
 
 		// Operations
 		// Once the RTCPeerConnection object has been initialized, for every call to createOffer, setLocalDescription, createAnswer and setRemoteDescription; execute the following steps:
@@ -45,6 +45,7 @@ define([
 
 			// Are we in a stable state?
 			if(pc.signalingState==='stable'){
+
 				// Pop the operation off the front.
 				var op = operations.shift();
 				if(op){
@@ -57,12 +58,13 @@ define([
 		}
 
 
-
 		var pc,
 			stream = Object.create(null);
 
-		// Add default constraints
-		stream.constraints = constraints || {};
+		// Creating an offer is a little fraught with dnager if the other party does so too
+		// To mitigate the problems lets turn on a flag when the master client (determined arbitarily from session ID)
+		// Needs a negotiation that they wont process offers themselves
+		var MASTER = id < peer.id;
 
 		// Null
 		stream.channel = null;
@@ -70,8 +72,33 @@ define([
 		// Extend the stream with events
 		Events.call(stream);
 
+		// Add default constraints
+		stream.constraints = constraints || {};
+
+		// Add default constraints
+		stream.remoteconstraints = {
+			video : constraints.video,
+			data : constraints.data
+		};
+
 		// Listen for changes in the constraints
 		watch( stream.constraints, ['video','data'], toggleLocalStream );
+
+		// Broad cast local constraint changes
+		watch( stream.constraints, ['video','data'], function(){
+
+			// notify the other party that this users constraints have changed 
+			// Lets inform the third party to disable there's
+			peer.send({
+				type : "stream:remoteconstraints",
+				to : id,
+				data : {
+					video : !!stream.constraints.video,
+					data : !!stream.constraints.data
+				}
+			});
+		});
+
 
 		// Peer Connection
 		// Initiate a local peer connection handler
@@ -88,7 +115,7 @@ define([
 			pc.onicecandidate = function(e){
 				var candidate = e.candidate;
 				if(candidate){
-					handler({
+					peer.send({
 						type : 'stream:candidate',
 						data : {
 							label: candidate.label||candidate.sdpMLineIndex,
@@ -99,7 +126,7 @@ define([
 				}
 			};
 		}catch(e){
-			console.error("Failed to create PeerConnection, exception: " + e.message);
+			console.error("PeerJS: Failed to create PeerConnection, exception: " + e.message);
 			return stream;
 		}
 
@@ -109,11 +136,19 @@ define([
 		};
 
 
+		pc.oniceconnectionstatechange = function(e){
+			console.warn("ICE-CONNECTION-STATE-CHANGE",e,pc.iceConnectionState);
+		};
+
+
 		//pc.addEventListener("addstream", works in Chrome
 		//pc.onaddstream works in FF and Chrome
 		pc.onaddstream = function(e){
 			e.from = id;
 			stream.emit('media:connect', e);
+
+			// Check to see if they are accepting video
+			toggleLocalStream();
 		};
 
 		// pc.addEventListener("removestream", works in Chrome
@@ -121,6 +156,9 @@ define([
 		pc.onremovestream = function(e){
 			e.from = id;
 			stream.emit('media:disconnect', e);
+
+			// Check to see if they are accepting video
+			toggleLocalStream();
 		};
 
 		pc.ondatachannel = function(e){
@@ -129,18 +167,36 @@ define([
 		};
 
 		pc.onnegotiationneeded = function(e){
-			pc.createOffer(function(session){
-				pc.setLocalDescription(session, function(){
-					handler({
-						type : "stream:offer",
-						to : id,
-						data : {
-							offer : pc.localDescription
-						}
-					});
-				}, errorHandler);
 
-			}, null, config);
+			if(MASTER){
+
+				// Create an offer
+				pc.createOffer(function(session){
+					operation(function(){
+						pc.setLocalDescription(session, function(){
+							peer.send({
+								type : "stream:offer",
+								to : id,
+								data : {
+									offer : pc.localDescription
+								}
+							});
+						}, errorHandler);
+					});
+				}, null, config);
+
+			}
+
+			else{
+
+				// Ask the other client to make the offer
+				peer.send({
+					type : "stream:makeoffer",
+					to : id
+				});
+
+			}
+
 		};
 
 
@@ -168,13 +224,15 @@ define([
 				setupDataChannel(stream.channel);
 			}
 			// No, we're processing an offer to make an answer then
-			else{
+			// If this client has protected itself then the third party clients offer is disgarded
+			else{ // if(!PROTECTED){
 
 				// Set the remote offer information
 				pc.setRemoteDescription(new RTCSessionDescription(offer), function(){
 					pc.createAnswer(function(session){
+						console.log("pc.signalingState",pc.signalingState);
 						pc.setLocalDescription(session, function(){
-							handler({
+							peer.send({
 								type : "stream:answer",
 								to : id,
 								data : pc.localDescription
@@ -189,7 +247,7 @@ define([
 		return stream;
 
 		function errorHandler(e){
-			console.log("SET Description fail triggered:",e);
+			console.error("SET Description failed triggered:",e);
 		}
 
 		//
@@ -219,7 +277,7 @@ define([
 
 
 			// Do the constraints allow for media to be added?
-			if(!stream.constraints.video||!media){
+			if(!stream.constraints.video||!stream.remoteconstraints.video||!media){
 
 				// We should probably remove the stream here
 				pc.getLocalStreams().forEach(function(media){
@@ -234,11 +292,24 @@ define([
 
 			console.log("PC:adding local media");
 
+			// Has the media already been added?
+			var exit = false;
+			pc.getLocalStreams().forEach(function(_media){
+				if(media === _media){
+					exit = true;
+				}
+			});
+			if(exit){
+				return;
+			}
+
 			// Set up listeners when tracks are removed from this stream
 			// Aka if the streams loses its audio/video track we want this to update this peer connection stream
 			// For some reason it doesn't... which is weird
 			// TODO: remove the any tracks from the stream here if this is not a regular call.
 			operation(function(){
+				// We should probably remove the stream here
+				console.log("Adding local stream");
 				pc.addStream(media);
 			});
 

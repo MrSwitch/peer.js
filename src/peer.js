@@ -278,9 +278,7 @@ var peer = {
 		}
 		else{
 			// Update thread constraints
-			for(var x in constraints){
-				thread.constraints[x] = constraints[x];
-			}
+			extend( thread.constraints, constraints );
 		}
 
 
@@ -321,7 +319,7 @@ var peer = {
 			//
 			// Create a new stream
 			//
-			stream = this.streams[id] = Stream(id, constraints, this.stun_server, self.send.bind(self) );
+			stream = this.streams[id] = Stream(id, constraints, this.stun_server, this );
 
 			// Output pupblished events from this stream
 			stream.on('*', self.emit.bind(self) );
@@ -402,6 +400,8 @@ peer.on('thread:connect', function(e){
 	// Stream exist or create a stream
 	var stream = peer.streams[e.from];
 
+	// If the stream doesn't exist
+	// This client has the a larger random string
 	if( !stream && e.from < peer.id ){
 
 		// This client is in charge of initiating the Stream Connection
@@ -498,7 +498,7 @@ peer.on('localmedia:disconnect', function(stream){
 //  -  string: SDP packet, 
 //  -  string array: contraints
 //
-peer.on('stream:offer', function(e){
+peer.on('stream:offer,stream:makeoffer', function(e){
 	//
 	// Offer
 	var data = e.data,
@@ -509,7 +509,7 @@ peer.on('stream:offer', function(e){
 
 	//
 	// Creates a stream:answer event
-	this.stream( uid, constraints || {}, data.offer );
+	this.stream( uid, constraints || {}, data && data.offer );
 
 });
 
@@ -545,6 +545,18 @@ peer.on('stream:candidate', function(e){
 
 	stream.pc.addIceCandidate(candidate);
 });
+
+// 
+// A client notifies the third party that their constraints have changed by sending a stream:change event
+// 
+peer.on('stream:remoteconstraints', function(e){
+	var uid = e.from;
+	var stream = this.streams[uid];
+	extend( stream.remoteconstraints, e.data);
+});
+
+
+
 
 
 // Channels

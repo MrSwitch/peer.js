@@ -446,7 +446,10 @@ else{
 
 	function addStreamListeners(stream){
 		stream.onerror = function(e){
-			console.log("STREAM ERROR", e);
+			console.error("STREAM ERROR", e);
+		};
+		stream.onended = function(e){
+			console.warn("STREAM ENDED", e);
 		};
 
 		stream.getVideoTracks().forEach(addTrackEvent);
