@@ -2,7 +2,48 @@
 // Peer Server
 // Requires Socket.IO
 //
-var socket=require("socket.io");
+var socket = require("socket.io");
+
+//var thread = require("./thread.js");
+
+
+
+//////////////////////////////////
+// Global objects
+//////////////////////////////////
+
+//
+// Profiles:
+// Hash of User ID's	=> Array of session ID's they belong too
+var profiles	= {},
+
+//
+// Pending:
+// Hash of Contact ID's	=> Array of messages pending for them once they come online
+	pending		= {},
+
+//
+// Recipients
+// Hash of Session ID's	=> Array of Session ID's the user has contacted within their session
+// User to message with a disconnected status.
+	recipients	= {},
+
+//
+// Friends sessions:
+// Hash of Contact ID's	=> Array of session ID's to pass on to the contacts when they identify themselves
+	friend_sessions		= {},
+
+//
+// Session Friends
+// Hash of sessions ids => Array of Contacts ID's
+	session_friends		= {},
+
+//
+// Sessions:
+// Hash of Session ID's	=> Array of User ID's associated with the session
+	session_userids		= {};
+
+
 
 
 module.exports = function(app){
@@ -21,55 +62,21 @@ module.exports = function(app){
 
 
 	//////////////////////////////////
-	// Global objects
-	//////////////////////////////////
-
-	//
-	// Profiles:
-	// Hash of User ID's	=> Array of session ID's they belong too
-	var profiles	= {},
-
-	//
-	// Pending:
-	// Hash of Contact ID's	=> Array of messages pending for them once they come online
-		pending		= {},
-
-	//
-	// Recipients
-	// Hash of Session ID's	=> Array of Session ID's the user has contacted within their session
-	// User to message with a disconnected status.
-		recipients	= {},
-
-	//
-	// Friends sessions:
-	// Hash of Contact ID's	=> Array of session ID's to pass on to the contacts when they identify themselves
-		friend_sessions		= {},
-
-	//
-	// Session Friends
-	// Hash of sessions ids => Array of Contacts ID's
-		session_friends		= {},
-
-	//
-	// Sessions:
-	// Hash of Session ID's	=> Array of User ID's associated with the session
-		session_userids		= {};
-
-
-
-	//////////////////////////////////
 	// Create a new Client
 	//////////////////////////////////
 
 	io.sockets.on('connection', function (socket) {
 
+
 		var threads = [],
 			my_contacts = [];
 
+		console.log("Connect "+ socket.id);
 
 		function send(to, data){
 
 			// Send
+			console.log("SENDTO: "+ to +" "+ JSON.stringify(data) );
 			to = to || socket.id;
 
 			io.sockets.socket(to).send(JSON.stringify(data));
@@ -84,10 +91,6 @@ module.exports = function(app){
 			from : socket.id,
 			to : socket.id
 		}));
-
-		socket.on('*', function(data){
-			console.log(arguments);
-		});
 
 		//
 		// Assign user to a 'thread'
@@ -140,10 +143,12 @@ module.exports = function(app){
 		// Listen to events
 		socket.on('message', function(_data){
 
-			console.log('Message Recieved');
+			console.log("message ", _data);
 			console.log(_data);
 
 			_data = JSON.parse(_data);
+
+
 
 			if(!(_data instanceof Array)){
 				_data = [_data];
@@ -221,7 +226,9 @@ module.exports = function(app){
 		// `facebook_id`@facebook
 		// `windows_id`@windows
 		// `google_id`@google
-		socket.on('socket:tag',function(data){
+		socket.on('session:tag',function(data){
+
+			console.log("session:tag ", data);
 
 			// The session has has a thirdparty ID
 			// Loop through this Array
@@ -250,7 +257,7 @@ module.exports = function(app){
 
 						// Send to this current socket
 						send(socket.id, {
-							type : 'friend',
+							type : 'socket:watch',
 							data : session_userids[session_id],
 							from : session_id
 						});
@@ -280,7 +287,9 @@ module.exports = function(app){
 		// Define Profile ID's of user's one wishes to watch
 		// e.g. [`facebook_id`@facebook, `windows_id`@windows, `google_id`@google]
 		//
-		socket.on('socket:watch',function(data){
+		socket.on('session:watch',function(data){
+
+			console.log("session:watch ", data);
 
 			// Loop through the ID's
 			(data instanceof Array ? data : [data]).forEach(function(id){
@@ -369,6 +378,7 @@ module.exports = function(app){
 				delete recipients[socket.id];
 			}
 		});
+
 	});
 
 };
