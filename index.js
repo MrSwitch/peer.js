@@ -1,4 +1,4 @@
-var peer = require('./src/app.js');
+var peer = require('./server/app.js');
 
 var connect = require('connect');
 var server = connect().use( connect.static( __dirname + '/src') );

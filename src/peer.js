@@ -5,32 +5,50 @@
 // @since July 2012
 //
 
-require([
-		'utils/getUserMedia',
-		'utils/PeerConnection',
-		'utils/RTCSessionDescription',
-		'utils/events',
 
-		'utils/extend',
+define([
+	'./utils/getUserMedia',
+	'./utils/PeerConnection',
+	'./utils/RTCSessionDescription',
+	'./utils/events',
 
-		'utils/isEqual',
-		'utils/isEmpty',
+	'./utils/extend',
 
-		'watch',
+	'./utils/isEqual',
+	'./utils/isEmpty',
 
-		'lib/featureDetect',
-		'lib/socket',
+	'../bower_components/watch/src/watch',
 
-		'models/stream'
-	],
-	function(getUserMedia, PeerConnection, RTCSessionDescription, Events, extend, isEqual, isEmpty, Watch, featureDetect, socket, Stream){
+	'./lib/featureDetect',
+	'./lib/socket',
+
+	'./models/threads',
+	'./models/stream'
+], function(
+	getUserMedia,
+	PeerConnection,
+	RTCSessionDescription,
+	Events,
+	extend,
+	isEqual,
+	isEmpty,
+	Watch,
+	featureDetect,
+	socket,
+	Threads,
+	Stream
+){
 
 	var watch = Watch.watch;
 
 	var STUN_SERVER = "stun:stun.l.google.com:19302";
 
 
-var peer = {
+
+
+var peer = Object.create(new Events());
+
+extend( peer, {
 
 	//
 	// Initiate the socket connection
@@ -53,6 +71,7 @@ var peer = {
 			this.one('socket:connect', callback);
 		}
 
+
 		return this;
 	},
 
@@ -74,13 +93,13 @@ var peer = {
 	//
 	// AddMedia
 	// 
-	addMedia : function(callback){
+	addMedia : function(successHandler, failHandler){
 
 		var self = this;
 
 		// Do we already have an open stream?
 		if(self.localmedia){
-			callback(this.localmedia);
+			successHandler(this.localmedia);
 			return this;
 		}
 
@@ -103,28 +122,26 @@ var peer = {
 
 			// Vid onload doesn't seem to fire
 			self.emit('localmedia:connect',stream);
+
+			successHandler(stream);
 		};
 
 		//
 		// Has the callback been replaced with a stream
 		//
-		if(callback instanceof EventTarget){
+		if(successHandler instanceof EventTarget){
 
 			// User aded a media stream
-			_success(callback);
+			_success(successHandler);
 			return this;
 		}
 
-
-		// Add callback
-		if(callback){
-			self.one('localmedia:connect', callback);
-		}
 
 		// Call it?
 		getUserMedia({audio:true,video:true}, _success, function(e){
 			// Trigger a failure
 			self.emit('localmedia:failed', e);
+			failHandler();
 		});
 
 
@@ -192,108 +209,6 @@ var peer = {
 	},
 
 
-	//
-	// A collection of threads for which this user has connected
-	threads : {},
-
-	//
-	// Thread connecting/changeing/disconnecting
-	// Control the participation in a thread, by setting the permissions which you grant the thread.
-	// e.g. 
-	// thread( id string, Object[video:true] )  - send 'thread:connect'		- connects this user to a thread. Broadcasts 
-	// thread( id string, Object[video:false] ) - send 'thread:change'		- connects/selects this user to a thread
-	// thread( id string, false )				- send 'thread:disconnect'	- disconnects this user from a thread
-	//
-	//
-	// Typical preceeding flow: init
-	// -----------------------------
-	// 1. Broadcasts thread:connect + credentials - gets other members thread:connect (incl, credentials)
-	// 
-	// 2. Receiving a thread:connect with the users credentials
-	//		- creates a peer connection (if preferential session)
-	//
-	//		- taking the lowest possible credentials of both members decide whether to send camera*
-	//
-	// Thread:change
-	// -----------------------------
-	// 1. Updates sessions, updates other members knowledge of this client
-	//		- Broadcasts thread:change + new credentials to other members.
-	//		- ForEach peer connection which pertains to this session
-	//			For all the threads which this peer connection exists in determine the highest possible credentials, e.g. do they support video
-	//			Add/Remove remote + local video streams (depending on credentials). Should we reignite the Connection confifuration?
-	//		- This looks at all sessions in the thread and determines whether its saf
-	//
-	thread : function(id, constraints){
-
-		var init = false;
-
-		if( typeof(id) === "object" ){
-			if(!constraints){
-				constraints = id;
-			}
-
-			// Make up a new thread ID if one wasn't given
-			id = (Math.random() * 1e18).toString(36);
-		}
-
-
-		// Get the thread
-		var thread = this.threads[id];
-
-		// INIT
-		// Else intiiatlize the thread
-		if(!thread){
-
-			// Create the thread object
-			thread = this.threads[id] = {
-				// initiate contraints
-				constraints : {},
-				// initiate sessions
-				sessions : [],
-				// initial state
-				state : 'connect'
-			};
-
-			// init
-			init = true;
-		}
-
-
-		//
-		// CONSTRAINTS
-		if( constraints === false ){
-
-			// Update state
-			delete this.threads[id];
-
-			// DISCONNECT
-			// broadcast a disconnect message to all members
-			this.send("thread:disconnect", {
-				thread : id
-			});
-
-			// Clear Up stream connections based on the change in the connections
-			clearUpStreams();
-			return;
-		}
-		else{
-			// Update thread constraints
-			extend( thread.constraints, constraints );
-		}
-
-
-		// Connect to a messaging group
-		this.send("thread:"+(init ? 'connect' : 'change'), {
-			thread : id,
-			constraints : constraints
-		});
-
-		// Tidy streams
-		clearUpStreams();
-
-		return thread;
-	},
-
 
 	// A collection of Peer Connection streams
 	streams : {},
@@ -340,16 +255,16 @@ var peer = {
 		// Add the offer to the stream
 		stream.open(offer);
 	}
-};
+});
 
 
 //
 // Expose external
 window.peer = peer;
 
-//
-// Expand the Peer object with events
-Events.call(peer);
+// Extend with the thread management
+Threads.call(peer);
+
 
 // EVENTS
 // The "default:" steps maybe cancelled using e.preventDefault()
@@ -361,7 +276,7 @@ Events.call(peer);
 peer.on('socket:connect', function(e){
 
 	// Store the users session
-	this.id = e.to;
+	this.id = e.id;
 
 	// Todo
 	// If the user manually connects and disconnects, do we need 
@@ -370,78 +285,50 @@ peer.on('socket:connect', function(e){
 
 //
 // Thread:Connect (comms)
-// When a user B has joined a thread the party in that thread A is notified with a thread:connect Event
-// Party A replies with an identical thread:connect to party B (this ensures everyone connecting is actually online)
-// Party B does not reply to direct thread:connect containing a "to" field events, and the chain is broken.
-//
 // Initiate (pc:offer)
 // If recipient A has a larger SessionID than sender B then inititiate Peer Connection
 peer.on('thread:connect', function(e){
 
-	// It's weird that we should receive a connection to a thread we haven't already established a listener for
-	// But it could be that the thread was somehow removed.
-	var thread = peer.threads[e.thread] || peer.thread(e.thread, {video:false});
+	// Was this a remove connection?
 
-	// Add the sender to the internal list of thread sessions
-	if(thread.sessions.indexOf(e.from) === -1){
-		thread.sessions.push(e.from);
+	if( e.from ){
+
+		// It's weird that we should receive a connection to a thread we haven't already established a listener for
+		var thread = peer.threads[e.thread];
+
+		// STREAMS
+		// Stream exist or create a stream
+		var stream = peer.streams[e.from];
+
+		// If the stream doesn't exist
+		// This client has the a larger random string
+		if( !stream && e.from < peer.id ){
+
+			// This client is in charge of initiating the Stream Connection
+			// We'll do this off the bat of acquiring a thread:connect event from a user
+			peer.stream( e.from, thread.constraints );
+		}
 	}
 
-	// SEND THREAD:CONNECT
-	// Was this a direct message?
-	if(!e.to){
-		// Send a thread:connect back to them
-		e.to = e.from;
-		peer.send('thread:connect', e);
-	}
-
-
-	// STREAMS
-	// Stream exist or create a stream
-	var stream = peer.streams[e.from];
-
-	// If the stream doesn't exist
-	// This client has the a larger random string
-	if( !stream && e.from < peer.id ){
-
-		// This client is in charge of initiating the Stream Connection
-		// We'll do this off the bat of acquiring a thread:connect event from a user
-		peer.stream( e.from, thread.constraints );
-	}
-	else if (stream){
-		clearUpStreams();
-	}
 });
 
 
 //
 // Thread Change
-// A client has updated their constraints, this changes what media can be sent
-// Trigger stream changes
-peer.on('thread:change', function(){
-	// A member of a thread, has changed their permissions
-});
-
-
-
+// If the local client has changed their credentials
 //
-// thread:disconnect
-// When a member disconnects from a thread we get this fired
-//
-peer.on('thread:disconnect', function(e){
 
-	// Get thread
-	var thread = this.threads[e.thread],
-		uid = e.from;
+peer.on('thread:change, thread:connect, thread:disconnect', function(e){
 
-	// Thread
-	if( thread && thread.sessions.indexOf(uid) > -1 ){
-		thread.sessions.splice(thread.sessions.indexOf(uid), 1);
+	// Is this local
+
+	if( !e.from ){
+
+		// Update the data which is being applied to streams
+		// aka Add/Remove from a stream depending on the threads which they are both a part of.
+
+		clearUpStreams();	
 	}
-
-	//
-	// Tidy up the streams
-	clearUpStreams();
 
 });
 
@@ -621,7 +508,10 @@ function clearUpStreams(){
 
 function getSessionConstraints(sessionID){
 
-	var constraints = {},
+	var constraints = {
+			video : false,
+			data : false
+		},
 		prop;
 
 	// Loop through the active threads where does it exist?
@@ -633,7 +523,7 @@ function getSessionConstraints(sessionID){
 		// Does this stream exist in the thread?
 		if(thread.constraints && thread.sessions.indexOf(sessionID)>-1){
 
-			// Loop through this threads credentials
+			// Loop through the contraints on this thread credentials
 			for( prop in thread.constraints ){
 
 				// If the credential property is positive use it otherwise use the default
@@ -643,5 +533,7 @@ function getSessionConstraints(sessionID){
 	}
 	return constraints;
 }
+
+	return peer;
 
 });

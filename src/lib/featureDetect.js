@@ -1,4 +1,6 @@
-define(['utils/PeerConnection'],function(PeerConnection){
+define([
+	'../utils/PeerConnection'
+],function(PeerConnection){
 	var pc, channel;
 	try{
 		// raises exception if createDataChannel is not supported

@@ -2,13 +2,15 @@
 // Stream
 // Create a new PeerConnection
 //
+
+
 define([
-	'utils/PeerConnection',
-	'utils/RTCSessionDescription',
+	'../utils/PeerConnection',
+	'../utils/RTCSessionDescription',
 
-	'utils/events',
+	'../utils/events',
 
-	'watch'
+	'../../bower_components/watch/src/watch'
 
 
 ], function(PeerConnection, RTCSessionDescription, Events, Watch){
@@ -59,7 +61,7 @@ define([
 
 
 		var pc,
-			stream = Object.create(null);
+			stream = new Events();
 
 		// Creating an offer is a little fraught with dnager if the other party does so too
 		// To mitigate the problems lets turn on a flag when the master client (determined arbitarily from session ID)
@@ -68,9 +70,6 @@ define([
 
 		// Null
 		stream.channel = null;
-
-		// Extend the stream with events
-		Events.call(stream);
 
 		// Add default constraints
 		stream.constraints = constraints || {};

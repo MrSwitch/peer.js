@@ -3,14 +3,15 @@
 // Socket creates a send/receive protocol with the server
 // Currently this abstracts Socket.IO
 //
-define(['utils/events', 'utils/getScript'], function(Events, getScript){
+define([
+	'../utils/events',
+	'../utils/getScript'
+], function(Events, getScript){
 
 	//
 	var socket = null;
 
-	var self = Object.create(null);
-
-	Events.call(self);
+	var self  = new Events();
 
 	var callbacks = [];
 
@@ -46,9 +47,9 @@ define(['utils/events', 'utils/getScript'], function(Events, getScript){
 
 				self.emit.call(self, data.type, data, function(o){
 					// if callback was defined, lets send it back
-					if("callback" in data){
+					if("callback_id" in data){
 						o.to = data.from;
-						o.callback_response = data.callback;
+						o.callback_response = data.callback_id;
 						socket.send(JSON.stringify(o));
 					}
 				});
@@ -71,13 +72,13 @@ define(['utils/events', 'utils/getScript'], function(Events, getScript){
 		// Add callback
 		if(callback){
 			// Count
-			callback_id = callbacks.length;
+			data.callback_id = callbacks.length;
 			callbacks.push(callback);
 		}
 
 		self.one(!!this.id||'socket:connect', function(){
 			if( name ){
-				socket.emit(name, data, callback_id);
+				socket.emit(name, data);
 			}
 			else{
 				socket.send(JSON.stringify(data));
@@ -94,7 +95,7 @@ define(['utils/events', 'utils/getScript'], function(Events, getScript){
 	};
 
 	self.one('socket:connect', function(e){
-		self.id = e.to;
+		self.id = e.id;
 	});
 
 

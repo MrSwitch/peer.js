@@ -1,9 +1,9 @@
 {
   "name": "WebRTC",
   "version": "0.0.2",
-  "main": "src/app.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/app.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "socket.io": "^0.9.16",
@@ -16,7 +16,12 @@
     "grunt-contrib-jshint": "~0.10.0",
     "grunt-contrib-watch": "~0.6.1",
     "amdclean": "^1.5.0",
-    "grunt-contrib-requirejs": "^0.4.3"
+    "grunt-contrib-requirejs": "^0.4.3",
+    "grunt-mocha-test": "^0.11.0",
+    "expect": "^0.1.1",
+    "expect.js": "^0.3.1",
+    "sinon": "^1.10.2",
+    "grunt-mocha-phantomjs": "^0.5.0"
   },
   "engines": {
     "node": "0.10.x",

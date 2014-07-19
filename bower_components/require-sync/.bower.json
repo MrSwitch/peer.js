@@ -23,13 +23,14 @@
     "test",
     "tests"
   ],
-  "_release": "dc655f352c",
+  "_release": "fd3ba58be9",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "dc655f352c87860cd10e014d2cf2a976ffafc4cc"
+    "commit": "fd3ba58be9647908a438ce70962caa05837b96c9"
   },
   "_source": "git://github.com/MrSwitch/require-sync.js.git",
-  "_target": "*",
-  "_originalSource": "require-sync"
+  "_target": "master",
+  "_originalSource": "require-sync",
+  "_direct": true
 }

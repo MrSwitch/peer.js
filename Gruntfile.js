@@ -45,6 +45,25 @@ module.exports = function(grunt) {
         }
       }
     },
+    mochaTest: {
+      test: {
+        options: {
+          reporter: 'spec',
+          globals : {
+            expect : require("expect")
+          }
+        },
+        src: ['tests/**/*.js']
+      }
+    },
+    mocha_phantomjs: {
+      options: {
+        // 'reporter': 'xunit',
+        // 'output': 'test/results/mocha.xml'
+      },
+      all: ['tests/specs/index.html']
+    },
+
     watch: {
       files: ['<%= jshint.files %>'],
       tasks: ['jshint']
@@ -84,15 +103,20 @@ module.exports = function(grunt) {
           "http://localhost:5000/peer.js" : "https://peer-server.herokuapp.com/peer.min.js"
         }
       }
-    }
+    },
+
   });
 
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-mocha-test');
+  grunt.loadNpmTasks('grunt-mocha-phantomjs');
+
   grunt.loadNpmTasks('grunt-contrib-requirejs');
   grunt.loadNpmTasks('shunt');
 
-  grunt.registerTask('test', ['jshint', 'qunit']);
-  grunt.registerTask('default', ['jshint']);
+  grunt.registerTask('test', ['jshint', 'mochaTest']);
+  grunt.registerTask('default', ['jshint','mocha_phantomjs']);
 
 };
