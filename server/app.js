@@ -76,11 +76,8 @@ module.exports = function(app){
 			peer.send(data);
 		});
 		socket.on('disconnect',function(){
-			var data = {
-				type : 'socket:disconnect'
-			};
-			log(data);
-			peer.send(data);
+			log({type:'disconnect'});
+			peer.close();
 		});
 
 function log(data, out){
@@ -89,13 +86,16 @@ function log(data, out){
 		data = JSON.parse(data);
 	}
 
-	var color = '\x1b[93m%s\x1b[0m: \x1b[92m%s\x1b[0m';
+	var color = '\x1b[93m-> %s\x1b[0m: \x1b[92m%s\x1b[0m ';
 	if( out ){
-		color = '\x1b[96m%s\x1b[0m: \x1b[92m%s\x1b[0m';
+		color = '\x1b[93m-> %s\x1b[0m: \x1b[92m%s\x1b[0m \x1b[96m%s -> \x1b[0m';
+		console.log( color, (data.from || 'new'), data.type, peer.id);
+	}
+	else{
+		console.log( color, peer.id, data.type );
 	}
 
-	console.log( color, ( out ? ' <-  ':'  -> ' ) + peer.id, data.type);
-	console.log('\x1b[90m%s\x1b[0m', JSON.stringify(data, true, 2) );
+	console.log('\x1b[90m%s\x1b[0m', JSON.stringify(data, true, 2).replace(/(^\{\n|\}$)/g, '') );
 }
 
 	});

@@ -18,7 +18,8 @@ function(
 
 	// A thread is a collection of the following
 
-	function Thread(){
+	function Thread(id){
+		this.id = id;
 		this.constraints = {};
 		this.streams = {};
 		this.state = 'connect';
@@ -88,7 +89,7 @@ function(
 			if(!thread){
 
 				// Create the thread object
-				thread = this.threads[id] =  new Thread();
+				thread = this.threads[id] =  new Thread(id);
 				thread.constraints = constraints || {};
 
 				// Response
@@ -169,7 +170,7 @@ function(
 
 			if ( !e.thread ){
 				// this is nonsense
-				return;
+				throw Error("thread:* event fired without a thread value");
 			}
 
 			// Get or create a thread
@@ -196,12 +197,12 @@ function(
 			if( !(remoteID in thread.streams) ){
 
 				// Set the default
-				thread.streams[remoteID] = e.constraints = {};
+				thread.streams[remoteID] = e.constraints || {};
 			}
 			else{
 				// The stream object contains the constraints for that user
 				// Lets apply the constraints from this connection too that user.
-				extend( thread.streams[remoteID], e.constraints );
+				extend( thread.streams[remoteID], e.constraints || {} );
 			}
 
 
@@ -213,9 +214,13 @@ function(
 			// Was this a direct message?
 			if(!e.to){
 				// Send a thread:connect back to the remote
-				e.to = remoteID;
-				e.constraints = thread.constraints;
-				this.send('thread:connect', e);
+				var data = {
+					to : remoteID,
+					thread : thread.id,
+					constraints : thread.constraints
+				};
+				console.log("SEND", JSON.stringify(data));
+				this.send('thread:connect', data);
 			}
 		});
 

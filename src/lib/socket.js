@@ -31,6 +31,8 @@ define([
 			// Connect to the socket
 			socket = io.connect( ws );
 
+			console.log(socket.socket.sessionid);
+
 			// Define an message handling
 			socket.on('message', function(data){
 
@@ -76,14 +78,21 @@ define([
 			callbacks.push(callback);
 		}
 
-		self.one(!!this.id||'socket:connect', function(){
+		var action = function(){
 			if( name ){
 				socket.emit(name, data);
 			}
 			else{
 				socket.send(JSON.stringify(data));
 			}
-		});
+		};
+
+		if(this.id){
+			action();
+		}
+		else{
+			self.one('socket:connect', action);
+		}
 	};
 
 	//

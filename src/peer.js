@@ -7,9 +7,6 @@
 
 
 define([
-	'./utils/getUserMedia',
-	'./utils/PeerConnection',
-	'./utils/RTCSessionDescription',
 	'./utils/events',
 
 	'./utils/extend',
@@ -17,29 +14,24 @@ define([
 	'./utils/isEqual',
 	'./utils/isEmpty',
 
-	'../bower_components/watch/src/watch',
-
 	'./lib/featureDetect',
 	'./lib/socket',
 
 	'./models/threads',
-	'./models/stream'
+	'./models/stream',
+	'./models/localmedia'
+
 ], function(
-	getUserMedia,
-	PeerConnection,
-	RTCSessionDescription,
 	Events,
 	extend,
 	isEqual,
 	isEmpty,
-	Watch,
 	featureDetect,
 	socket,
 	Threads,
-	Stream
+	Streams,
+	LocalMedia
 ){
-
-	var watch = Watch.watch;
 
 	var STUN_SERVER = "stun:stun.l.google.com:19302";
 
@@ -64,7 +56,10 @@ extend( peer, {
 		});
 
 		// Message
-		socket.on('*', self.emit.bind(self) );
+		socket.on('*', function(event_name, arg){
+			console.log("Inbund:", event_name, arg );
+			self.emit(event_name, arg);
+		});
 
 		// Loaded
 		if(callback){
@@ -84,69 +79,6 @@ extend( peer, {
 	// 
 	support : featureDetect,
 
-
-	//
-	// LocalMedia
-	// 
-	localmedia : null,
-
-	//
-	// AddMedia
-	// 
-	addMedia : function(successHandler, failHandler){
-
-		var self = this;
-
-		// Do we already have an open stream?
-		if(self.localmedia){
-			successHandler(this.localmedia);
-			return this;
-		}
-
-		// Create a success callback
-		// Fired when the users camera is attached
-		var _success = function(stream){
-
-			// Attach stream
-			self.localmedia = stream;
-
-			// listen for change events on this stream
-			stream.onended = function(){
-
-				// Detect the change
-				if( !self.localmedia || self.localmedia === stream ){
-					self.emit('localmedia:disconnect', stream);
-					self.localmedia = null;
-				}
-			};
-
-			// Vid onload doesn't seem to fire
-			self.emit('localmedia:connect',stream);
-
-			successHandler(stream);
-		};
-
-		//
-		// Has the callback been replaced with a stream
-		//
-		if(successHandler instanceof EventTarget){
-
-			// User aded a media stream
-			_success(successHandler);
-			return this;
-		}
-
-
-		// Call it?
-		getUserMedia({audio:true,video:true}, _success, function(e){
-			// Trigger a failure
-			self.emit('localmedia:failed', e);
-			failHandler();
-		});
-
-
-		return this;
-	},
 
 	//
 	// Send information to the socket
@@ -208,62 +140,22 @@ extend( peer, {
 		return this;
 	},
 
-
-
-	// A collection of Peer Connection streams
-	streams : {},
-
-	//
-	// Stream
-	// Establishes a connection with a user
-	//
-	stream : function( id, constraints, offer ){
-
-		console.log("stream", arguments);
-
-		var self = this;
-
-		if(!id){
-			throw 'streams(): Expecting an ID';
-		}
-		
-		// Get or set a stream
-		var stream = this.streams[id];
-
-		if(!stream){
-			//
-			// Create a new stream
-			//
-			stream = this.streams[id] = Stream(id, constraints, this.stun_server, this );
-
-			// Output pupblished events from this stream
-			stream.on('*', self.emit.bind(self) );
-
-			// Control
-			// This should now work, will have to reevaluate
-			self.on('localmedia:connect', stream.addStream);
-			self.on('localmedia:disconnect', stream.removeStream);
-
-			//
-			// Add the current Stream
-			if(self.localmedia){
-				stream.addStream(self.localmedia);
-			}
-		}
-
-		// intiiate the PeerConnection controller
-		// Add the offer to the stream
-		stream.open(offer);
-	}
 });
 
 
-//
+
+
 // Expose external
 window.peer = peer;
 
 // Extend with the thread management
 Threads.call(peer);
+
+// Extend with stream management
+Streams.call(peer);
+
+// Extend with local Media
+LocalMedia.call(peer);
 
 
 // EVENTS
@@ -282,55 +174,6 @@ peer.on('socket:connect', function(e){
 	// If the user manually connects and disconnects, do we need 
 });
 
-
-//
-// Thread:Connect (comms)
-// Initiate (pc:offer)
-// If recipient A has a larger SessionID than sender B then inititiate Peer Connection
-peer.on('thread:connect', function(e){
-
-	// Was this a remove connection?
-
-	if( e.from ){
-
-		// It's weird that we should receive a connection to a thread we haven't already established a listener for
-		var thread = peer.threads[e.thread];
-
-		// STREAMS
-		// Stream exist or create a stream
-		var stream = peer.streams[e.from];
-
-		// If the stream doesn't exist
-		// This client has the a larger random string
-		if( !stream && e.from < peer.id ){
-
-			// This client is in charge of initiating the Stream Connection
-			// We'll do this off the bat of acquiring a thread:connect event from a user
-			peer.stream( e.from, thread.constraints );
-		}
-	}
-
-});
-
-
-//
-// Thread Change
-// If the local client has changed their credentials
-//
-
-peer.on('thread:change, thread:connect, thread:disconnect', function(e){
-
-	// Is this local
-
-	if( !e.from ){
-
-		// Update the data which is being applied to streams
-		// aka Add/Remove from a stream depending on the threads which they are both a part of.
-
-		clearUpStreams();	
-	}
-
-});
 
 
 function messageHandler(data, from){
@@ -365,85 +208,6 @@ function messageHandler(data, from){
 }
 
 
-peer.on('localmedia:disconnect', function(stream){
-	// Loop through streams and call removeStream
-	for(var x in this.streams){
-		this.streams[x].pc.removeStream(stream);
-	}
-});
-
-
-//////////////////////////////////////////////////
-// STREAMS
-//////////////////////////////////////////////////
-
-
-//
-// stream:offer
-// A client has sent a Peer Connection Offer
-// An Offer Object:
-//  -  string: SDP packet, 
-//  -  string array: contraints
-//
-peer.on('stream:offer,stream:makeoffer', function(e){
-	//
-	// Offer
-	var data = e.data,
-		uid = e.from;
-
-	// Constraints
-	var constraints = getSessionConstraints( uid );
-
-	//
-	// Creates a stream:answer event
-	this.stream( uid, constraints || {}, data && data.offer );
-
-});
-
-
-
-//
-// stream:answer
-// 
-peer.on('stream:answer', function(e){
-
-	console.log("on:answer: Answer recieved, connection created");
-	this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription(e.data) );
-
-});
-
-
-// not sure what ICE candidate is for
-peer.on('stream:candidate', function(e){
-
-	var uid = e.from,
-		data = e.data,
-		stream = this.streams[uid];
-
-	if(!stream){
-		console.error("Candidate needs initiation");
-		return;
-	}
-
-	var candidate = new RTCIceCandidate({
-		sdpMLineIndex	: data.label,
-		candidate		: data.candidate
-	});
-
-	stream.pc.addIceCandidate(candidate);
-});
-
-// 
-// A client notifies the third party that their constraints have changed by sending a stream:change event
-// 
-peer.on('stream:remoteconstraints', function(e){
-	var uid = e.from;
-	var stream = this.streams[uid];
-	extend( stream.remoteconstraints, e.data);
-});
-
-
-
 
 
 // Channels
@@ -472,67 +236,6 @@ window.onbeforeunload = function(){
 	}
 };
 
-
-
-
-
-
-
-//
-// For all the active streams determine whether they are still needed
-// Loop through all threads
-// Check the other threads which they are in and determine whether its appropriate to change the peer connection streams
-function clearUpStreams(){
-
-	// EACH STREAM
-	for( var sessionID in peer.streams ){
-
-		//
-		// Gets the constraints for the client's ID
-		var constraints = getSessionConstraints(sessionID);
-
-		//
-		// EOF, obtained highest constraints for this connection
-		// /////////////////////////////////
-
-		var stream = peer.streams[sessionID];
-
-		// Update the existing constraints on this stream
-		extend( stream.constraints, constraints );
-	}
-}
-
-// ///////////////////////////////
-// Constraints
-// Returns an Object of the connection constraints
-
-function getSessionConstraints(sessionID){
-
-	var constraints = {
-			video : false,
-			data : false
-		},
-		prop;
-
-	// Loop through the active threads where does it exist?
-	for(var threadID in peer.threads){
-
-		// Thread
-		var thread = peer.threads[threadID];
-
-		// Does this stream exist in the thread?
-		if(thread.constraints && thread.sessions.indexOf(sessionID)>-1){
-
-			// Loop through the contraints on this thread credentials
-			for( prop in thread.constraints ){
-
-				// If the credential property is positive use it otherwise use the default
-				constraints[prop] = thread.constraints[prop] || constraints[prop];
-			}
-		}
-	}
-	return constraints;
-}
 
 	return peer;
 

@@ -8,14 +8,16 @@ define([
 	'../utils/PeerConnection',
 	'../utils/RTCSessionDescription',
 
-	'../utils/events',
+	'../utils/events'
 
-	'../../bower_components/watch/src/watch'
+], function(
 
+	PeerConnection,
+	RTCSessionDescription,
 
-], function(PeerConnection, RTCSessionDescription, Events, Watch){
+	Events
 
-	var watch = Watch.watch;
+){
 
 	var config = { 'optional': [], 'mandatory': {
 					'OfferToReceiveAudio': true,
@@ -24,7 +26,7 @@ define([
 	var media;
 
 
-	return function( id, constraints, STUN_SERVER, peer ){
+	function Stream( id, constraints, STUN_SERVER, peer ){
 
 		// Operations
 		// Once the RTCPeerConnection object has been initialized, for every call to createOffer, setLocalDescription, createAnswer and setRemoteDescription; execute the following steps:
@@ -72,30 +74,19 @@ define([
 		stream.channel = null;
 
 		// Add default constraints
-		stream.constraints = constraints || {};
+		function setConstraints(constraints){
+			stream.constraints = {
+				remote : constraints.remote || {},
+				local : constraints.local || {},
+			};
+		}
 
-		// Add default constraints
-		stream.remoteconstraints = {
-			video : constraints.video,
-			data : constraints.data
-		};
+		setConstraints(constraints);
 
-		// Listen for changes in the constraints
-		watch( stream.constraints, ['video','data'], toggleLocalStream );
-
-		// Broad cast local constraint changes
-		watch( stream.constraints, ['video','data'], function(){
-
-			// notify the other party that this users constraints have changed 
-			// Lets inform the third party to disable there's
-			peer.send({
-				type : "stream:remoteconstraints",
-				to : id,
-				data : {
-					video : !!stream.constraints.video,
-					data : !!stream.constraints.data
-				}
-			});
+		// listen to stream change events
+		stream.on('stream:constraints', function(constraints){
+			setConstraints(constraints);
+			toggleLocalStream();
 		});
 
 
@@ -276,7 +267,7 @@ define([
 
 
 			// Do the constraints allow for media to be added?
-			if(!stream.constraints.video||!stream.remoteconstraints.video||!media){
+			if(!stream.constraints.local.video||!stream.constraints.remote.video||!media){
 
 				// We should probably remove the stream here
 				pc.getLocalStreams().forEach(function(media){
@@ -328,5 +319,149 @@ define([
 			});
 
 		}
+	}
+
+
+	// Extend our Global object with the stream methods, collections and listeners
+
+	return function(){
+
+		// A collection of Peer Connection streams
+
+		this.streams = {};
+
+
+		// Stream
+		// Establishes a connection with a user
+
+		this.stream = function( id, constraints, offer ){
+
+			console.log("stream", arguments);
+
+			if(!id){
+				throw 'streams(): Expecting an ID';
+			}
+			
+			// Does this stream exist?
+			var stream = this.streams[id];
+
+			if(!stream){
+
+				// Create a new stream
+				stream = this.streams[id] = Stream( id, constraints, this.stun_server, this );
+
+				// Output pupblished events from this stream
+				stream.on('*', this.emit.bind(self) );
+
+				// Control
+				// This should now work, will have to reevaluate
+				this.on('localmedia:connect', stream.addStream);
+				this.on('localmedia:disconnect', stream.removeStream);
+
+				//
+				// Add the current Stream
+				if(this.localmedia){
+					stream.addStream(this.localmedia);
+				}
+			}
+
+			else if(constraints){
+
+				// Update an existing stream with fresh constraints
+				stream.emit('stream:constraints', constraints);
+			}
+
+			// intiiate the PeerConnection controller
+			// Add the offer to the stream
+			stream.open(offer || null);
+		};
+
+
+		//////////////////////////////////////////////////
+		// STREAMS
+		//////////////////////////////////////////////////
+
+
+		// stream:connect
+		// pass through any stream connection events
+
+		this.on('stream:connect, stream:change', function( e ){
+
+
+			// Create/Update the stream with the constraints offered.
+
+			this.stream( e.from || e.id, {
+				remote : e.remote,
+				local : e.local
+			});
+
+		});
+
+
+
+
+		// stream:offer
+		// A client has sent a Peer Connection Offer
+		// An Offer Object:
+		//  -  string: SDP packet, 
+		//  -  string array: contraints
+
+		this.on('stream:offer, stream:makeoffer', function(e){
+
+			// Creates a stream:answer event
+			this.stream( e.from, null, e.data && e.data.offer );
+
+		});
+
+
+
+		//
+		// stream:answer
+		// 
+		this.on('stream:answer', function(e){
+
+			console.log("on:answer: Answer recieved, connection created");
+			this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription(e.data) );
+
+		});
+
+
+
+		// 
+		// Relay ice Candidates
+		//
+
+		this.on('stream:candidate', function(e){
+
+			var uid = e.from,
+				data = e.data,
+				stream = this.streams[uid];
+
+			if(!stream){
+				console.error("Candidate needs initiation");
+				return;
+			}
+
+			var candidate = new RTCIceCandidate({
+				sdpMLineIndex	: data.label,
+				candidate		: data.candidate
+			});
+
+			stream.pc.addIceCandidate(candidate);
+		});
+
+
+		// Listen to change to the local media, and remove it streams if this occurs
+
+		this.on('localmedia:disconnect', function(mediastream){
+			// Loop through streams and call removeStream
+			for(var x in this.streams){
+				this.streams[x].pc.removeStream(mediastream);
+			}
+		});
+
+
+
 	};
+
 });

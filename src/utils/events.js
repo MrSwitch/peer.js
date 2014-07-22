@@ -109,7 +109,7 @@ define(function(){
 
 	// Remove a callback
 	Events.prototype.off = function(event_names, callback){
-		var a = event_names.split(seperator);
+		var a = event_names.split(separator);
 		for(var j=0;j<a.length;j++){
 			var name = event_names[i];
 			if(this.events[name]){
