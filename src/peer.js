@@ -11,9 +11,6 @@ define([
 
 	'./utils/extend',
 
-	'./utils/isEqual',
-	'./utils/isEmpty',
-
 	'./lib/featureDetect',
 	'./models/Socket',
 
@@ -24,8 +21,6 @@ define([
 ], function(
 	Events,
 	extend,
-	isEqual,
-	isEmpty,
 	featureDetect,
 	Socket,
 	Threads,
@@ -102,35 +97,14 @@ Streams.call(peer);
 LocalMedia.call(peer);
 
 
-// EVENTS
-// The "default:" steps maybe cancelled using e.preventDefault()
-
-//
-// Session:Connect
-// When local client has succesfully connected to the socket server we get a session connect event, so lets set that
-// 
-peer.on('socket:connect', function(e){
-
-	// Store the users session
-	this.id = e.id;
-
-	// Todo
-	// If the user manually connects and disconnects, do we need 
-});
 
 
-
-
-
-//
 // BeforeUnload
-//
-window.onbeforeunload = function(){
+
+window.addEventListener('beforeunload', function(){
 	// Tell everyone else of the session close.
-	if(socket){
-		socket.disconnect();
-	}
-};
+	peer.disconnect();
+});
 
 
 	return peer;
