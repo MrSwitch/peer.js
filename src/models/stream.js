@@ -81,11 +81,11 @@ define([
 			};
 		}
 
-		setConstraints(constraints);
+		setConstraints(constraints||{});
 
 		// listen to stream change events
 		stream.on('stream:constraints', function(constraints){
-			setConstraints(constraints);
+			setConstraints(constraints||{});
 			toggleLocalStream();
 		});
 
@@ -127,7 +127,7 @@ define([
 
 
 		pc.oniceconnectionstatechange = function(e){
-			console.warn("ICE-CONNECTION-STATE-CHANGE",e,pc.iceConnectionState);
+			console.warn("ICE-CONNECTION-STATE-CHANGE " + pc.iceConnectionState);
 		};
 
 
@@ -158,6 +158,13 @@ define([
 
 		pc.onnegotiationneeded = function(e){
 
+			// Has the signalling state changed?
+
+			if( pc.signalingState === 'closed' ){
+				console.warn('signallingState closed');
+				return;
+			}
+
 			if(MASTER){
 
 				// Create an offer
@@ -167,9 +174,7 @@ define([
 							peer.send({
 								type : "stream:offer",
 								to : id,
-								data : {
-									offer : pc.localDescription
-								}
+								data : pc.localDescription
 							});
 						}, errorHandler);
 					});
@@ -209,7 +214,7 @@ define([
 			if(!offer){
 
 				if(stream.channel){
-					console.log('CREATED', 'Received anothr request', stream.pc);
+					console.log('CREATED', 'Received another request', stream.pc);
 				}
 
 				// Create a datachannel
@@ -223,8 +228,20 @@ define([
 
 				// Set the remote offer information
 				pc.setRemoteDescription(new RTCSessionDescription(offer), function(){
+
+					if( pc.signalingState === 'closed' ){
+						console.warn("signalingState closed: during setRemoteDescription");
+						return;
+					}
+
 					pc.createAnswer(function(session){
 						console.log("pc.signalingState",pc.signalingState);
+
+						if(pc.signalingState === 'closed'){
+							console.warn("signalingState closed: after createAnswer");
+							return;
+						}
+
 						pc.setLocalDescription(session, function(){
 							peer.send({
 								type : "stream:answer",
@@ -251,12 +268,22 @@ define([
 
 			// Broadcast
 			channel.onopen = function(e){
-				e.id = id;
-				stream.emit("channel:connect", e);
+				stream.emit("channel:connect", {
+					type : 'channel:connect',
+					id : id,
+					from : id,
+					to : peer.id,
+					target : e
+				});
 			};
 			channel.onmessage = function(e){
-				e.id = id;
-				stream.emit("channel:message", e);
+
+				var data = JSON.parse(e.data);
+				data.from = id;
+				data.to = peer.id;
+				data.target = e;
+
+				stream.emit("channel:message", data);
 			};
 			channel.onerror = function(e){
 				e.id = id;
@@ -414,7 +441,7 @@ define([
 			}
 
 			// Else fallback to the socket method
-			socketSend.apply(this, arguments);
+			socketSend.call(this, name, data, callback);
 		};
 
 
@@ -452,7 +479,7 @@ define([
 		this.on('stream:offer, stream:makeoffer', function(e){
 
 			// Creates a stream:answer event
-			this.stream( e.from, null, e.data && e.data.offer );
+			this.stream( e.from, null, e.data );
 
 		});
 
@@ -464,7 +491,7 @@ define([
 		this.on('stream:answer', function(e){
 
 			console.log("on:answer: Answer recieved, connection created");
-			this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription(e.data) );
+			this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription( e.data ) );
 
 		});
 
@@ -504,16 +531,34 @@ define([
 		});
 
 
-		//
-		// stream:answer
-		// 
-		this.on('channel:message', function(e){
-
-			console.log('channel:message', e);
-
+		// Channels
+		this.on('channel:connect', function(e){
+			//
+			// Process 
+			// console.log('channel:connect',e);
 		});
 
+		// 
+		this.on('channel:message', function(data){
 
+			if("callback_response" in data){
+				var i = data.callback_response;
+				delete data.callback_response;
+				this.callback[i].call(peer, data);
+				return;
+			}
+
+			var type = data.type;
+
+			this.emit(type, data, function(o){
+				// if callback was defined, lets send it back
+				if("callback" in data){
+					o.to = data.from;
+					o.callback_response = data.callback;
+					this.send(o);
+				}
+			});
+		});
 
 	};
 

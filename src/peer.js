@@ -15,7 +15,7 @@ define([
 	'./utils/isEmpty',
 
 	'./lib/featureDetect',
-	'./lib/socket',
+	'./models/Socket',
 
 	'./models/threads',
 	'./models/stream',
@@ -27,7 +27,7 @@ define([
 	isEqual,
 	isEmpty,
 	featureDetect,
-	socket,
+	Socket,
 	Threads,
 	Streams,
 	LocalMedia
@@ -43,34 +43,6 @@ var peer = Object.create(new Events());
 extend( peer, {
 
 	//
-	// Initiate the socket connection
-	//
-	init : function(ws, callback){
-
-
-		var self = this;
-
-		// Connect to the service and let us know when connected
-		socket.connect(ws, function(){
-			// self.emit('socket:connect');
-		});
-
-		// Message
-		socket.on('*', function(event_name, arg){
-			console.log("Inbund:", event_name, arg );
-			self.emit(event_name, arg);
-		});
-
-		// Loaded
-		if(callback){
-			this.one('socket:connect', callback);
-		}
-
-
-		return this;
-	},
-
-	//
 	// Defaults
 	stun_server : STUN_SERVER,
 
@@ -78,24 +50,6 @@ extend( peer, {
 	// DataChannel
 	// 
 	support : featureDetect,
-
-
-	//
-	// Send information to the socket
-	//
-	send : function(name, data, callback){
-
-		//
-		if (typeof(name) === 'object'){
-			callback = data;
-			data = name;
-			name = data.type;
-		}
-
-		socket.send(name, data, callback);
-
-		return this;
-	},
 
 
 	/////////////////////////////////////
@@ -135,10 +89,13 @@ extend( peer, {
 // Expose external
 window.peer = peer;
 
-// Extend with the thread management
+// Extend with the Web Sockets methods: connect(), send()
+Socket.call(peer);
+
+// Extend with the thread management: thread(), threads{}
 Threads.call(peer);
 
-// Extend with stream management
+// Extend with stream management: stream(), streams{}
 Streams.call(peer);
 
 // Extend with local Media
@@ -162,54 +119,6 @@ peer.on('socket:connect', function(e){
 });
 
 
-
-function messageHandler(data, from){
-	console.info("Incoming:", data);
-
-	data = JSON.parse(data);
-
-	if(from){
-		data.from = from;
-	}
-
-	if("callback_response" in data){
-		var i = data.callback_response;
-		delete data.callback_response;
-		peer.callback[i].call(peer, data);
-		return;
-	}
-
-	var type = data.type;
-	try{
-		delete data.type;
-	}catch(e){}
-
-	peer.emit(type, data, function(o){
-		// if callback was defined, lets send it back
-		if("callback" in data){
-			o.to = data.from;
-			o.callback_response = data.callback;
-			peer.send(o);
-		}
-	});
-}
-
-
-
-
-// Channels
-peer.on('channel:connect', function(e){
-	//
-	// Process 
-	// console.log('channel:connect',e);
-});
-
-// 
-peer.on('channel:message', function(e){
-	//
-	// Process 
-	messageHandler(e.data, e.id);
-});
 
 
 
