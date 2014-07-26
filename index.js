@@ -26,8 +26,8 @@ else{
 	var https = require('https');
 	var fs = require('fs');
 	var options = {
-		key : fs.readFileSync('../localhost.key').toString(),
-		cert : fs.readFileSync('../localhost.cert').toString()
+		key : fs.readFileSync('./ssl/localhost.key').toString(),
+		cert : fs.readFileSync('./ssl/localhost.cert').toString()
 	};
 	var app = https.createServer(options, server).listen( https_port );
 	// Start the peer server and bind listener
