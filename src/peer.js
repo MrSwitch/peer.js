@@ -89,20 +89,7 @@ extend( peer, {
 		if (typeof(name) === 'object'){
 			callback = data;
 			data = name;
-			name = null;
-		}
-
-		console.log("SEND: "+ name, data);
-
-		var recipient = data.to,
-			streams = this.streams[recipient];
-
-		if( recipient && streams && streams.channel && streams.channel.readyState==="open"){
-			if(name){
-				data.type = name;
-			}
-			streams.channel.send(JSON.stringify(data));
-			return;
+			name = data.type;
 		}
 
 		socket.send(name, data, callback);

@@ -3,7 +3,7 @@
 	<head>
 		<meta http-equiv="Content-type" content="text/html; charset=utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-		<title>HelloJS Unit and E2E tests</title>
+		<title>PeerJS Server Socket tests</title>
 		<link href="https://cdnjs.cloudflare.com/ajax/libs/mocha/1.18.2/mocha.min.css" media="screen" rel="stylesheet" type="text/css" />
 	</head>
 	<body>
@@ -12,34 +12,15 @@
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/1.18.2/mocha.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/expect.js/0.2.0/expect.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/sinon.js/1.7.3/sinon-min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.11/require.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/json2/20130526/json2.min.js"></script>
+		<script src="http://localhost:5000/socket.io/socket.io.js"></script>
 		<script>
-
-			require.config({
-//				urlArgs: '_=' + ( new Date() )
-				paths : {
-					'specs' : '../tests/specs'
-				},
-				baseUrl : '../../src/'
-			});
-
 			mocha.ui('bdd');
-
+		</script>
+		<script src="./app.js"></script>
+		<script>
+			mocha.run();
 		</script>
 
-		<script>
-
-			// Load
-			require([
-				// Models
-				'specs/threads',
-				'specs/streams',
-
-			], function(){
-				if (window.mochaPhantomJS) { mochaPhantomJS.run(); }
-				else { mocha.run(); }
-			});
-		</script>      
 	</body>
 </html>

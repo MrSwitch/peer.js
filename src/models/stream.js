@@ -208,6 +208,10 @@ define([
 			// Making an offer?
 			if(!offer){
 
+				if(stream.channel){
+					console.log('CREATED', 'Received anothr request', stream.pc);
+				}
+
 				// Create a datachannel
 				// This initiates the onnegotiationneeded event
 				stream.channel = pc.createDataChannel('data');
@@ -242,6 +246,8 @@ define([
 
 		//
 		function setupDataChannel(channel){
+
+			console.debug("DATACHANNEL CREATED", channel);
 
 			// Broadcast
 			channel.onopen = function(e){
@@ -351,7 +357,7 @@ define([
 				stream = this.streams[id] = Stream( id, constraints, this.stun_server, this );
 
 				// Output pupblished events from this stream
-				stream.on('*', this.emit.bind(self) );
+				stream.on('*', this.emit.bind(this) );
 
 				// Control
 				// This should now work, will have to reevaluate
@@ -375,6 +381,43 @@ define([
 			// Add the offer to the stream
 			stream.open(offer || null);
 		};
+
+
+
+
+
+		//////////////////////////////////////////////////
+		// CHANNEL MESSAGING
+		//////////////////////////////////////////////////
+
+		// Store the socket send function
+		var socketSend = this.send;
+
+		// Change it
+		this.send = function(name, data, callback){
+
+			if(typeof name === 'object'){
+				callback = data;
+				data = name;
+				name = data.type;
+			}
+
+			var recipient = data.to,
+				streams = this.streams[recipient];
+
+			if( recipient && streams && streams.channel && streams.channel.readyState==="open"){
+				if(name){
+					data.type = name;
+				}
+				streams.channel.send(JSON.stringify(data));
+				return;
+			}
+
+			// Else fallback to the socket method
+			socketSend.apply(this, arguments);
+		};
+
+
 
 
 		//////////////////////////////////////////////////
@@ -458,6 +501,16 @@ define([
 			for(var x in this.streams){
 				this.streams[x].pc.removeStream(mediastream);
 			}
+		});
+
+
+		//
+		// stream:answer
+		// 
+		this.on('channel:message', function(e){
+
+			console.log('channel:message', e);
+
 		});
 
 
