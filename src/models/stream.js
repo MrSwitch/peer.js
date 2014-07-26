@@ -8,7 +8,7 @@ define([
 
 	'utils/events',
 
-	'../bower_components/watch/src/watch'
+	'watch'
 
 
 ], function(PeerConnection, RTCSessionDescription, Events, Watch){

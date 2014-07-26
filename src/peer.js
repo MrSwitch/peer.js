@@ -4,6 +4,7 @@
 // @author Andrew Dodson (@mr_switch)
 // @since July 2012
 //
+
 require([
 		'utils/getUserMedia',
 		'utils/PeerConnection',
@@ -15,7 +16,7 @@ require([
 		'utils/isEqual',
 		'utils/isEmpty',
 
-		'../bower_components/watch/src/watch',
+		'watch',
 
 		'lib/featureDetect',
 		'lib/socket',
@@ -305,7 +306,7 @@ var peer = {
 	//
 	stream : function( id, constraints, offer ){
 
-		console.log("stream()", arguments);
+		console.log("stream", arguments);
 
 		var self = this;
 

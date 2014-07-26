@@ -73,16 +73,18 @@ define(function(){
 
 			for(var i=0;i<a.length;i++){
 				var _name = a[i];
-				if(this.events[_name]){
-					this.events[_name].forEach(function(o,i){
-						if(o){
+				var _events = this.events[_name];
+				if(_events){
+					for(var j=0; j<_events.length; j++){
+						var _event = _events[j];
+						if(_event){
 							var args = [evt, callback];
 							if( _name === '*' ){
 								args.unshift(name);
 							}
-							o.apply(self,args);
+							_event.apply(self,args);
 						}
-					});
+					}
 				}
 			}
 			
