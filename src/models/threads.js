@@ -3,16 +3,10 @@
 // Maintain a list of threads which a user is subscribed too
 //
 define([
-	'../utils/extend',
-	'../utils/merge',
-	'../utils/diff',
-	'../utils/isEmpty'
+	'../utils/extend'
 ],
 function(
-	extend,
-	merge,
-	diff,
-	isEmpty
+	extend
 ){
 
 

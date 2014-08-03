@@ -12,8 +12,8 @@ define([
 	'./utils/extend',
 
 	'./lib/featureDetect',
-	'./models/Socket',
 
+	'./models/socket',
 	'./models/threads',
 	'./models/stream',
 	'./models/localmedia'
