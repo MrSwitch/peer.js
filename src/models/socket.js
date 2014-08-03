@@ -99,6 +99,9 @@ define([
 				data = name;
 				name = data.type;
 			}
+			else{
+				data.type = name;
+			}
 
 			var callback_id;
 
@@ -111,12 +114,7 @@ define([
 			}
 
 			var action = function(){
-				if( name ){
-					socket.emit(name, data);
-				}
-				else{
-					socket.send(JSON.stringify(data));
-				}
+				socket.send(JSON.stringify(data));
 			};
 
 			if(this.id){

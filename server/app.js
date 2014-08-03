@@ -45,32 +45,6 @@ module.exports = function(app){
 			id : socket.id
 		});
 
-		socket.on('thread:connect', function(data){
-			data.type = 'thread:connect';
-			log(data);
-			peer.send(data);
-		});
-
-		socket.on('thread:disconnect', function(data){
-			data.type = 'thread:disconnect';
-			log(data);
-			peer.send(data);
-		});
-		socket.on('session:tag',function(data){
-			data.type = 'session:tag';
-			log(data);
-			peer.send(data);
-		});
-		socket.on('session:watch',function(data){
-			data.type = 'session:watch';
-			log(data);
-			peer.send(data);
-		});
-		socket.on('socket:disconnect',function(data){
-			data.type = 'socket:disconnect';
-			log(data);
-			peer.send(data);
-		});
 		socket.on('message',function(data){
 			log(data);
 			peer.send(data);
