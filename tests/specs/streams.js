@@ -167,7 +167,9 @@ define([
 			peerB.one('stream:answer',function(data){
 
 				// Slave should ultimatly receive a stream:offer
-				peerA.one('stream:offer', done );
+				peerA.one('stream:offer', function(){
+					done();
+				});
 
 				// Now lets trigger a renegotiation from the Slave to its master
 				// And listen for a makeoffer event
