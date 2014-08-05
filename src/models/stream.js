@@ -213,14 +213,20 @@ define([
 			// Making an offer?
 			if(!offer){
 
-				if(stream.channel){
-					console.log('CREATED', 'Received another request', stream.pc);
+				console.log("peer.stream()", pc.signalingState);
+
+				// Trigger onnegotiation needed
+				if( MASTER ){
+					// Create a datachannel
+					// This initiates the onnegotiationneeded event
+					stream.channel = pc.createDataChannel('data');
+					setupDataChannel(stream.channel);
+				}
+				else{
+					// trigger the fallback for on negotiation needed
+					pc.onnegotiationneeded();
 				}
 
-				// Create a datachannel
-				// This initiates the onnegotiationneeded event
-				stream.channel = pc.createDataChannel('data');
-				setupDataChannel(stream.channel);
 			}
 			// No, we're processing an offer to make an answer then
 			// If this client has protected itself then the third party clients offer is disgarded
@@ -396,6 +402,11 @@ define([
 				if(this.localmedia){
 					stream.addStream(this.localmedia);
 				}
+
+				// intiiate the PeerConnection controller
+				// Add the offer to the stream
+				stream.open(offer || null);
+				return;
 			}
 
 			else if(constraints){
@@ -404,9 +415,10 @@ define([
 				stream.emit('stream:constraints', constraints);
 			}
 
-			// intiiate the PeerConnection controller
-			// Add the offer to the stream
-			stream.open(offer || null);
+			if(offer){
+				stream.open(offer);
+				return;
+			}
 		};
 
 

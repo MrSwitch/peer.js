@@ -152,9 +152,41 @@ define([
 		});
 
 
+		it("should trigger renegotiation from either party", function(done){
+
+			var spy = sinon.spy();
+
+			/**
+			Either client needs to be able to trigger renegotiations of the setup
+			*/
+
+			var peerA = Peer('A');
+			var peerB = Peer('B');
+
+			// Signalling state is stable when Peer B (MASTER) receives the stream:answer back from the Peer A (SLAVE)
+			peerB.one('stream:answer',function(data){
+
+				// Slave should ultimatly receive a stream:offer
+				peerA.one('stream:offer', done );
+
+				// Now lets trigger a renegotiation from the Slave to its master
+				// And listen for a makeoffer event
+				peerB.one('stream:makeoffer', spy );
+				peerA.streams['B'].pc.onnegotiationneeded();
+
+				// This will retrigger a stream:makeoffer event from Slave to Master
+				expect( spy.calledOnce ).to.be.ok();
+			});
+
+			// Creating a peer stream
+			peerA.stream( 'B', {} );
+
+		});
+
+
 		describe("channel messaging", function(){
 
-			it("should trigger channel:connect when it is established durring stream connection", function(done){
+			it("should trigger channel:connect when it is established during stream connection", function(done){
 
 				var peerA = Peer('A');
 				var peerB = Peer('B');
@@ -171,6 +203,7 @@ define([
 
 			});
 
+
 			it("should extend peer.send to send messages between peers", function(done){
 
 				var peerA = Peer('A');
@@ -186,7 +219,27 @@ define([
 				});
 				peerA.on('channel:message', function(data){
 
-					console.log('channel:message', data);
+					// Received message from
+					expect(data).to.have.property('type', 'hello');
+
+					done();
+				});
+			});
+
+			it("should maintain connection regardless of being redefined by master", function(done){
+
+				var peerA = Peer('A');
+				var peerB = Peer('B');
+
+				// Creating a peer stream
+				peerA.stream( 'B', {} );
+
+				peerA.on('channel:connect', function(){
+
+					// Is capable of sending messages to another peer
+					peerA.send({to:'B', type:'hello'});
+				});
+				peerB.on('channel:message', function(data){
 
 					// Received message from
 					expect(data).to.have.property('type', 'hello');
