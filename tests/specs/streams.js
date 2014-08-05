@@ -19,7 +19,7 @@ define([
 		// Peer needs the send method
 		peer.send = function(name, data, callback){
 			data.from = id;
-			if( data.to ){
+			if( data.to && data.to in peers ){
 				peers[data.to].emit(data.type, data);
 			}
 		};
@@ -36,6 +36,8 @@ define([
 
 	describe("models/streams", function(){
 
+		this.timeout(5000);
+
 		var peer;
 
 		afterEach(function(){
@@ -43,8 +45,11 @@ define([
 			// Close all the current peer connections
 			for(var id in peers){
 				var peer = peers[id];
+				peer.events = {};
 				for( var _id in peer.streams ){
 					peer.streams[_id].pc.close();
+					if(peer.streams[_id].channel)
+						peer.streams[_id].channel.close();
 				}
 				peers.streams = {};
 			}
@@ -215,7 +220,6 @@ define([
 				peerB.stream( 'A', {} );
 
 				peerB.on('channel:connect', function(){
-
 					// Is capable of sending messages to another peer
 					peerB.send({to:'A', type:'hello'});
 				});

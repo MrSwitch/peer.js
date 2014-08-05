@@ -213,10 +213,8 @@ define([
 			// Making an offer?
 			if(!offer){
 
-				console.log("peer.stream()", pc.signalingState);
-
 				// Trigger onnegotiation needed
-				if( MASTER ){
+				if( MASTER && !stream.channel ){
 					// Create a datachannel
 					// This initiates the onnegotiationneeded event
 					stream.channel = pc.createDataChannel('data');
@@ -224,7 +222,7 @@ define([
 				}
 				else{
 					// trigger the fallback for on negotiation needed
-					pc.onnegotiationneeded();
+					operation(pc.onnegotiationneeded);
 				}
 
 			}
@@ -406,7 +404,8 @@ define([
 				// intiiate the PeerConnection controller
 				// Add the offer to the stream
 				stream.open(offer || null);
-				return;
+
+				return stream;
 			}
 
 			else if(constraints){
@@ -414,11 +413,11 @@ define([
 				// Update an existing stream with fresh constraints
 				stream.emit('stream:constraints', constraints);
 			}
-
-			if(offer){
-				stream.open(offer);
-				return;
+			else if(offer!==undefined){
+				stream.open( offer );
 			}
+
+			return stream;
 		};
 
 
@@ -491,7 +490,7 @@ define([
 		this.on('stream:offer, stream:makeoffer', function(e){
 
 			// Creates a stream:answer event
-			this.stream( e.from, null, e.data );
+			this.stream( e.from, null, e.data || null );
 
 		});
 
