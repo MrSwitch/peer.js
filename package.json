@@ -3,7 +3,8 @@
   "version": "0.0.2",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "chrome": "open -a \"Google Chrome\" --args --use-fake-ui-for-media-stream --use-fake-device-for-media-stream"
   },
   "dependencies": {
     "socket.io": "^0.9.16",
