@@ -22,11 +22,6 @@ define([
 
 			var self = this;
 
-			// Do we already have an open stream?
-			if(this.localmedia){
-				successHandler(this.localmedia);
-				return this;
-			}
 
 			// Create a success callback
 			// Fired when the users camera is attached
@@ -45,10 +40,13 @@ define([
 					}
 				};
 
+				if(successHandler){
+					successHandler(stream);
+				}
+
 				// Vid onload doesn't seem to fire
 				self.emit('localmedia:connect',stream);
 
-				successHandler(stream);
 			};
 
 			//
@@ -58,6 +56,14 @@ define([
 
 				// User aded a media stream
 				_success(successHandler);
+				return this;
+			}
+
+			// Do we already have an open stream?
+			else if(this.localmedia){
+				if(successHandler){
+					successHandler(this.localmedia);
+				}
 				return this;
 			}
 
