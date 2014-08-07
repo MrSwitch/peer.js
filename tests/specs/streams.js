@@ -36,6 +36,7 @@ define([
 
 	describe("models/streams", function(){
 
+		// Some operations take a while to setup (especially on my old windows laptop) nothing we can do, but wait.
 		this.timeout(5000);
 
 		var peer;
