@@ -263,12 +263,13 @@ define([
 
 		describe("video messaging", function(){
 
+			this.timeout(10000);
+
+
 			it("should trigger localmedia:connect when getUserMedia is initiated via addMedia", function(done){
 
 				// Give the user 10 seconds to tick any dialogue
 				// Howver run this through an https server or open the browser with flags 
-				this.timeout(10000);
-
 
 				var peerA = Peer('A');
 				var spy = sinon.spy();
@@ -291,11 +292,29 @@ define([
 				peerB.addMedia();
 
 				peerA.on('media:connect', function(stream){
-					console.log(stream);
 					done();
 				});
 				peerB.stream('A', {local:{video:true},remote:{video:true}});
 				peerA.stream('B', {local:{video:true},remote:{video:true}});
+
+			});
+
+			it("should not trigger media:connect when a user has not enabled constraints.local.video", function(done){
+
+				var spy = sinon.spy(function(){
+					done( new Error("triggered media:connect event") );
+				});
+
+				var peerA = Peer('A');
+				var peerB = Peer('B');
+
+				peerB.stream('A', {local:{video:true},remote:{video:true}});
+				peerA.stream('B', {local:{video:false},remote:{video:true}});
+
+				peerA.on('media:connect', spy);
+				peerB.addMedia();
+
+				setTimeout(done, 5000);
 
 			});
 
