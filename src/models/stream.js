@@ -8,6 +8,7 @@ define([
 	'../utils/PeerConnection',
 	'../utils/RTCSessionDescription',
 
+	'../utils/extend',
 	'../utils/events'
 
 ], function(
@@ -15,6 +16,7 @@ define([
 	PeerConnection,
 	RTCSessionDescription,
 
+	extend,
 	Events
 
 ){
@@ -73,19 +75,27 @@ define([
 		// Null
 		stream.channel = null;
 
-		// Add default constraints
-		function setConstraints(constraints){
-			stream.constraints = {
-				remote : constraints.remote || {},
-				local : constraints.local || {},
-			};
-		}
 
-		setConstraints(constraints||{});
+		// Default constraints
+		stream.constraints = {
+			remote : {},
+			local : {}
+		};
+
+
+		// Merge incoming constraints
+		extend(stream.constraints, constraints||{});
+
 
 		// listen to stream change events
 		stream.on('stream:constraints', function(constraints){
-			setConstraints(constraints||{});
+
+			// Update constraints
+			extend(stream.constraints, constraints||{});
+
+			console.log( stream.constraints );
+
+			// Trigger Constraints/Media changed listener
 			toggleLocalStream();
 		});
 
