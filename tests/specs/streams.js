@@ -1,7 +1,8 @@
 define([
 	'models/stream',
+	'models/localmedia',
 	'utils/events'
-], function(Streams, Events){
+], function(Streams, LocalMedia, Events){
 
 	var peers = {};
 
@@ -26,6 +27,9 @@ define([
 
 		// Bind threads to it.
 		Streams.call(peer);
+
+		// Bind threads to it.
+		LocalMedia.call(peer);
 
 		peers[id] = peer;
 
@@ -255,6 +259,46 @@ define([
 				});
 
 			});
+		});
+
+		describe("video messaging", function(){
+
+			it("should trigger localmedia:connect when getUserMedia is initiated via addMedia", function(done){
+
+				// Give the user 10 seconds to tick any dialogue
+				// Howver run this through an https server or open the browser with flags 
+				this.timeout(10000);
+
+
+				var peerA = Peer('A');
+				var spy = sinon.spy();
+
+				peerA.addMedia(spy);
+
+				peerA.on('localmedia:connect', function(stream){
+					expect(spy.calledOnce).to.be.ok();
+					expect(stream).to.be.an(Object);
+					done();
+				});
+
+			});
+
+			it("should trigger media:connect when a peer shares a video with another", function(done){
+
+				var peerA = Peer('A');
+
+				var peerB = Peer('B');
+				peerB.addMedia();
+
+				peerA.on('media:connect', function(stream){
+					console.log(stream);
+					done();
+				});
+				peerB.stream('A', {local:{video:true},remote:{video:true}});
+				peerA.stream('B', {local:{video:true},remote:{video:true}});
+
+			});
+
 		});
 
 	});
