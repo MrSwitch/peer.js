@@ -485,14 +485,27 @@ define([
 			}
 
 			var recipient = data.to,
-				streams = this.streams[recipient];
+				stream = this.streams[recipient];
 
-			if( recipient && streams && streams.channel && streams.channel.readyState==="open"){
+			if( recipient && stream && stream.channel && stream.channel.readyState==="open"){
 				if(name){
 					data.type = name;
 				}
-				streams.channel.send(JSON.stringify(data));
-				return;
+				var str = JSON.stringify(data);
+				try{
+					stream.channel.send(str);
+					return;
+				}
+				catch(e){
+
+					// Other party could have disappeared
+					// code: 19
+					// message: "Failed to execute 'send' on 'RTCDataChannel': Could not send data"
+					// name: "NetworkError"
+
+					stream.channel = null;
+
+				}
 			}
 
 			// Else fallback to the socket method

@@ -288,6 +288,35 @@ define([
 				});
 
 			});
+
+			it("should revert to sending socket messages when the other peer closes the channel", function(done){
+
+				var peerA = Peer('A');
+				var peerB = Peer('B');
+
+				// Creating a peer stream
+
+				peerA.on('channel:connect', function(){
+
+					// Close the other peers channel
+					peerB.streams['A'].channel.close();
+
+					// We can't call this inline... doesn't throw an error as expected, message never gets through
+					setTimeout(function(){
+						peerA.send({to:'B', type:'hello'});
+					});
+				});
+				peerB.on('hello', function(data){
+
+					// Received message from
+					expect(data).to.have.property('type', 'hello');
+
+					done();
+				});
+
+				peerA.stream( 'B', {} );
+
+			});
 		});
 
 		describe("video messaging", function(){
