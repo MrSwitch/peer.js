@@ -31,14 +31,13 @@ define([
 				self.localmedia = stream;
 
 				// listen for change events on this stream
-				stream.onended = function(){
-
+				stream.addEventListener('ended', function(){
 					// Detect the change
 					if( !self.localmedia || self.localmedia === stream ){
 						self.emit('localmedia:disconnect', stream);
 						self.localmedia = null;
 					}
-				};
+				});
 
 				if(successHandler){
 					successHandler(stream);

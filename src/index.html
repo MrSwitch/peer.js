@@ -105,7 +105,7 @@ else{
 	function toggleMedia(){
 
 		// Stop the stream
-		if(peer.localmedia){
+		if(peer.localmedia&&!peer.localmedia.ended){
 			peer.localmedia.stop();
 			return;
 		}
