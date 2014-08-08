@@ -196,6 +196,35 @@ define([
 		});
 
 
+		it("should send a stream:change event to a peer when local constraints change", function(done){
+
+			var spy = sinon.spy();
+			var peerA = Peer('A');
+			var peerB = Peer('B');
+
+			// Peer A connection to PeerB
+			peerA.stream( 'B', {
+				local : {video:true},
+				remote : {video:true}
+			});
+			peerA.on('stream:constraints', function(e){
+				expect( e.remote ).to.be.eql({video:false});
+				// Should receive a message from B with new credentials
+				done();
+			});
+
+			// Also connects but says that it isn't supporting video
+			peerB.stream( 'A',{
+				local : {video:false},
+				remote : {video:false}
+			});
+
+
+
+		});
+
+
+
 		describe("channel messaging", function(){
 
 			it("should trigger channel:connect when it is established during stream connection", function(done){
@@ -301,21 +330,28 @@ define([
 
 			it("should not trigger media:connect when a user has not enabled constraints.local.video", function(done){
 
-				var spy = sinon.spy(function(){
-					done( new Error("triggered media:connect event") );
-				});
 
 				var peerA = Peer('A');
 				var peerB = Peer('B');
 
+				// Peer creates a connection implicitly definging the peerA accepts video
 				peerB.stream('A', {local:{video:true},remote:{video:true}});
+				// Peer A changes their streams explicitly nullifying local constraints
 				peerA.stream('B', {local:{video:false},remote:{video:true}});
 
-				peerA.on('media:connect', spy);
+				peerA.on('media:connect', function(){
+					peerA.on('media:disconnect', function(){
+						done();
+					});
+					clearTimeout(timer);
+					setTimeout(function(){
+						done( new Error("triggered media:connect event") );
+					}, 5000);
+				});
+
 				peerB.addMedia();
 
-				setTimeout(done, 5000);
-
+				var timer = setTimeout(done, 5000);
 			});
 
 		});

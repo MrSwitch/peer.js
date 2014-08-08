@@ -9,6 +9,7 @@ define([
 	'../utils/RTCSessionDescription',
 
 	'../utils/extend',
+	'../utils/isEqual',
 	'../utils/events'
 
 ], function(
@@ -17,6 +18,7 @@ define([
 	RTCSessionDescription,
 
 	extend,
+	isEqual,
 	Events
 
 ){
@@ -83,13 +85,16 @@ define([
 		};
 
 
-		// Merge incoming constraints
-		extend(stream.constraints, constraints||{});
-
-
 		// listen to stream change events
-		stream.on('stream:constraints', function(constraints){
+		stream.setConstraints = function(constraints){
 
+			// If changes to the local constraint has occured
+			// deliver these to the other peer
+			var changed;
+			if( constraints.local && !isEqual( stream.constraints.local, constraints.local ) ){
+				changed = true;
+			}
+			
 			// Update constraints
 			extend(stream.constraints, constraints||{});
 
@@ -97,7 +102,23 @@ define([
 
 			// Trigger Constraints/Media changed listener
 			toggleLocalStream();
-		});
+
+			// Has the local constraints changed?
+			if(	changed ){
+				// Tell the thirdparty about it
+				peer.send({
+					type: 'stream:constraints',
+					remote : stream.constraints.local,
+					to : id
+				});
+			}
+		};
+
+
+		// Merge incoming constraints
+		if(constraints){
+			//stream.setConstraints( constraints );
+		}
 
 
 		// Peer Connection
@@ -307,7 +328,7 @@ define([
 
 		function toggleLocalStream(){
 
-			if(pc.readyState==='closed'){
+			if(!pc || pc.readyState==='closed'){
 				console.log("PC:connection closed, can't add stream");
 				return;
 			}
@@ -397,6 +418,11 @@ define([
 				// Create a new stream
 				stream = this.streams[id] = Stream( id, constraints, this.stun_server, this );
 
+				// Update an existing stream with fresh constraints
+				if(constraints){
+					stream.setConstraints( constraints );
+				}
+
 				// Output pupblished events from this stream
 				stream.on('*', this.emit.bind(this) );
 
@@ -421,7 +447,7 @@ define([
 			else if(constraints){
 
 				// Update an existing stream with fresh constraints
-				stream.emit('stream:constraints', constraints);
+				stream.setConstraints( constraints );
 			}
 			else if(offer!==undefined){
 				stream.open( offer );
@@ -476,15 +502,23 @@ define([
 		// stream:connect
 		// pass through any stream connection events
 
-		this.on('stream:connect, stream:change', function( e ){
+		this.on('stream:connect, stream:change, stream:constraints', function( e ){
 
+			// What has changed
+			var constraints = {};
+
+			// we have information on what the remote constraints are
+			if( e.remote ){
+				constraints.remote = e.remote;
+			}
+			// We have the local constraints
+			// Let also check that this has no-from field
+			if( e.local && !e.from ){
+				constraints.local = e.local;
+			}
 
 			// Create/Update the stream with the constraints offered.
-
-			this.stream( e.from || e.id, {
-				remote : e.remote,
-				local : e.local
-			});
+			this.stream( e.from || e.id, constraints );
 
 		});
 
