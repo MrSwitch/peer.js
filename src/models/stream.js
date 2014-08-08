@@ -9,6 +9,7 @@ define([
 	'../utils/RTCSessionDescription',
 
 	'../utils/extend',
+	'../utils/merge',
 	'../utils/isEqual',
 	'../utils/events'
 
@@ -18,10 +19,17 @@ define([
 	RTCSessionDescription,
 
 	extend,
+	merge,
 	isEqual,
 	Events
 
 ){
+
+	// Default Constraints
+	var default_constraints = {
+		video : false
+	};
+
 
 	var config = { 'optional': [], 'mandatory': {
 					'OfferToReceiveAudio': true,
@@ -509,12 +517,12 @@ define([
 
 			// we have information on what the remote constraints are
 			if( e.remote ){
-				constraints.remote = e.remote;
+				constraints.remote = merge( default_constraints, e.remote );
 			}
 			// We have the local constraints
 			// Let also check that this has no-from field
 			if( e.local && !e.from ){
-				constraints.local = e.local;
+				constraints.local = merge( default_constraints, e.local );
 			}
 
 			// Create/Update the stream with the constraints offered.

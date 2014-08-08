@@ -341,10 +341,11 @@ define([
 
 				peerA.on('media:connect', function(){
 					peerA.on('media:disconnect', function(){
+						clearTimeout(timer);
 						done();
 					});
 					clearTimeout(timer);
-					setTimeout(function(){
+					timer = setTimeout(function(){
 						done( new Error("triggered media:connect event") );
 					}, 5000);
 				});
