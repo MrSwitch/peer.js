@@ -46,9 +46,8 @@ define([
 			// Howver run this through an https server or open the browser with flags 
 
 			var peerA = Peer();
-			var spy = sinon.spy();
 
-			peerA.addMedia(spy);
+			peerA.addMedia();
 
 			peerA.on('localmedia:disconnect', function(){
 				// This should have triggered this localmedia:disconnect event
