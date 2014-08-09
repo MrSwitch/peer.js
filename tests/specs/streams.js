@@ -56,7 +56,7 @@ define([
 					if(peer.streams[_id].channel)
 						peer.streams[_id].channel.close();
 				}
-				peers.streams = {};
+				peer.streams = {};
 
 				// Close any local media streams
 				if( peer.localmedia && !peer.localmedia.ended ){
