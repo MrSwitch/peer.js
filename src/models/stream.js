@@ -167,6 +167,11 @@ define([
 
 		pc.oniceconnectionstatechange = function(e){
 			console.warn("ICE-CONNECTION-STATE-CHANGE " + pc.iceConnectionState);
+
+			// Determine whether the third party has ended their connection
+			stream.emit('stream:'+pc.iceConnectionState, {
+				from : id
+			});
 		};
 
 
@@ -175,6 +180,13 @@ define([
 		pc.onaddstream = function(e){
 			e.from = id;
 			stream.emit('media:connect', e);
+
+
+			// Listen to ended event
+		/*	e.stream.addEventListener('ended', function(){
+				alert('ended');
+			});*/
+
 
 			// Check to see if they are accepting video
 			toggleLocalStream();

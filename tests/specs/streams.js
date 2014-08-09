@@ -224,10 +224,44 @@ define([
 				remote : {video:false}
 			});
 
+		});
 
+
+		it("should trigger a stream:connected event when a peer connection has been established", function(done){
+
+			var peerA = Peer('A');
+			var peerB = Peer('B');
+
+			// Peer A connection to PeerB
+			peerA.stream( 'B' );
+
+			peerA.on('stream:connected', function(){
+				done();
+			});
 
 		});
 
+		// it("should trigger a stream:disconnect event when a peer connection has closed", function(done){
+
+		// 	var spy = sinon.spy();
+		// 	var peerA = Peer('A');
+		// 	var peerB = Peer('B');
+
+		// 	// Peer A connection to PeerB
+		// 	peerA.stream( 'B' );
+
+		// 	peerA.on('stream:connected', function(){
+
+		// 		// Listen to a disconnect
+		// 		peerA.on('stream:disconnected', function(){
+		// 			done();
+		// 		});
+
+		// 		// Close the remote peer connection
+		// 		peerB.streams['A'].pc.close();
+		// 	});
+
+		// });
 
 
 		describe("channel messaging", function(){
