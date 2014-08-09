@@ -505,6 +505,10 @@ define([
 
 					stream.channel = null;
 
+					// Retrigger the stream channel creation
+
+					this.stream( recipient, null, null );
+
 				}
 			}
 

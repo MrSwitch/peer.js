@@ -317,6 +317,34 @@ define([
 				peerA.stream( 'B', {} );
 
 			});
+
+			it("should reinitiate a closed channel", function(done){
+
+				var peerA = Peer('A');
+				var peerB = Peer('B');
+
+				// Creating a peer stream
+				peerA.one('channel:connect', function(){
+
+					// Close the other peers channel
+					peerB.streams['A'].channel.close();
+
+					// Expect channel:connect to be triggered again
+					peerA.on('channel:connect', function(){
+						done();
+					});
+
+					// We can't call this inline... doesn't throw an error as expected, message never gets through
+					setTimeout(function(){
+
+						peerA.send({to:'B', type:'hello'});
+					});
+				});
+
+				peerA.stream( 'B', {} );
+
+			});
+
 		});
 
 		describe("video messaging", function(){
