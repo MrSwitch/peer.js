@@ -57,6 +57,11 @@ define([
 						peer.streams[_id].channel.close();
 				}
 				peers.streams = {};
+
+				// Close any local media streams
+				if( peer.localmedia && !peer.localmedia.ended ){
+					peer.localmedia.stop();
+				}
 			}
 
 			peers = {};

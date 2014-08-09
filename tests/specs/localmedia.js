@@ -8,16 +8,24 @@ define([
 
 	describe("models/localmedia", function(){
 
-		var Peer = function(id){
+		var peer;
+
+		beforeEach(function(){
 
 			// Simulate the peer object
-			var peer = new Events();
+			peer = new Events();
 
 			// Bind threads to it.
 			LocalMedia.call(peer);
 
-			return peer;
-		};
+		});
+
+		afterEach(function(){
+			if( peer.localmedia && !peer.localmedia.ended ){
+				peer.localmedia.stop();
+			}
+		});
+
 
 		this.timeout(10000);
 
@@ -27,12 +35,11 @@ define([
 			// Give the user 10 seconds to tick any dialogue
 			// Howver run this through an https server or open the browser with flags 
 
-			var peerA = Peer();
 			var spy = sinon.spy();
 
-			peerA.addMedia(spy);
+			peer.addMedia(spy);
 
-			peerA.on('localmedia:connect', function(stream){
+			peer.on('localmedia:connect', function(stream){
 				expect(spy.calledOnce).to.be.ok();
 				expect(stream).to.be.an(Object);
 				done();
@@ -45,15 +52,13 @@ define([
 			// Give the user 10 seconds to tick any dialogue
 			// Howver run this through an https server or open the browser with flags 
 
-			var peerA = Peer();
+			peer.addMedia();
 
-			peerA.addMedia();
-
-			peerA.on('localmedia:disconnect', function(){
+			peer.on('localmedia:disconnect', function(){
 				// This should have triggered this localmedia:disconnect event
 				done();
 			});
-			peerA.on('localmedia:connect', function(stream){
+			peer.on('localmedia:connect', function(stream){
 				// Stop the stream immediatly
 				stream.stop();
 			});
