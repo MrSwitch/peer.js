@@ -52,9 +52,11 @@ define([
 				var peer = peers[id];
 				peer.events = {};
 				for( var _id in peer.streams ){
-					peer.streams[_id].pc.close();
-					if(peer.streams[_id].channel)
-						peer.streams[_id].channel.close();
+					var stream = peer.streams[_id];
+					if(stream.pc.signalingState !== 'closed')
+						stream.pc.close();
+					if(stream.channel)
+						stream.channel.close();
 				}
 				peer.streams = {};
 
@@ -241,27 +243,29 @@ define([
 
 		});
 
-		// it("should trigger a stream:disconnect event when a peer connection has closed", function(done){
+		it("should trigger a stream:disconnected event when a peer connection has closed", function(done){
 
-		// 	var spy = sinon.spy();
-		// 	var peerA = Peer('A');
-		// 	var peerB = Peer('B');
+			this.timeout(15000);
 
-		// 	// Peer A connection to PeerB
-		// 	peerA.stream( 'B' );
+			var spy = sinon.spy();
+			var peerA = Peer('A');
+			var peerB = Peer('B');
 
-		// 	peerA.on('stream:connected', function(){
+			// Peer A connection to PeerB
+			peerA.stream( 'B' );
 
-		// 		// Listen to a disconnect
-		// 		peerA.on('stream:disconnected', function(){
-		// 			done();
-		// 		});
+			peerA.on('stream:connected', function(){
 
-		// 		// Close the remote peer connection
-		// 		peerB.streams['A'].pc.close();
-		// 	});
+				// Listen to a disconnect
+				peerA.on('stream:disconnected', function(){
+					done();
+				});
 
-		// });
+				// Close the remote peer connection
+				peerB.streams['A'].pc.close();
+			});
+
+		});
 
 
 		describe("channel messaging", function(){
