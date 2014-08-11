@@ -242,6 +242,7 @@ Peer.prototype.broadcast = function(thread, data){
 	thread = Thread(thread);
 
 	data.from = this.id;
+	data.thread = thread.id;
 
 	// Loop through everyone on the thread and message them
 	thread.forEach(function( peer_id ){
@@ -455,7 +456,7 @@ function peerDisconnect(){
 		// Tell everyone else in the thread
 
 		peer.broadcast( thread.id, {
-			type : 'socket:disconnect'
+			type : 'thread:disconnect'
 		});
 
 

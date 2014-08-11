@@ -203,6 +203,8 @@ describe('Peer Socket thread', function(){
 			// Should be an instance
 			expect( obj ).to.have.property( 'type', 'thread:connect' );
 			expect( obj ).to.have.property( 'from', 3 );
+			// Because it is implicit broadcast, the to field should not be present
+			expect( obj ).to.not.have.property( 'to' );
 
 			done();
 		};
@@ -230,6 +232,26 @@ describe('Peer Socket thread', function(){
 			type : 'thread:disconnect',
 			thread : 111
 		});
+	});
+
+
+	it("should send thread:disconnect on disconnect", function(done){
+
+		var called;
+
+		// Listen for thread:connect events coming from the new peer
+		peer1.onmessage = function(obj){
+			// Should be an instance
+			if( obj.type === 'thread:disconnect' ){
+				expect( obj ).to.have.property( 'type', 'thread:disconnect' );
+				expect( obj ).to.have.property( 'from', 2 );
+				done();
+			}
+		};
+
+		// Disconnect peer2
+		peer2.close();
+
 	});
 
 });
