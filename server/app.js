@@ -34,8 +34,10 @@ module.exports = function(app){
 		// listen to outgoing messages from the thread
 		peer.onmessage = function(data){
 
-			// Send
-			log( data, true );
+			// Log
+			log( (data.from || 'new'), data.type, peer.id, data );
+
+			// 
 			socket.send(JSON.stringify(data));
 		};
 
@@ -46,31 +48,28 @@ module.exports = function(app){
 		});
 
 		socket.on('message',function(data){
-			log(data);
+			data = JSON.parse(data);
+			log( peer.id, data.type, null, data );
 			peer.send(data);
 		});
+
 		socket.on('disconnect',function(){
-			log({type:'disconnect'});
+			log( peer.id, 'disconnect' );
 			peer.close();
 		});
 
-function log(data, out){
-
-	if(typeof(data)==='string'){
-		data = JSON.parse(data);
-	}
-
-	var color = '\x1b[93m-> %s\x1b[0m: \x1b[92m%s\x1b[0m ';
-	if( out ){
-		color = '\x1b[93m-> %s\x1b[0m: \x1b[92m%s\x1b[0m \x1b[96m%s -> \x1b[0m';
-		console.log( color, (data.from || 'new'), data.type, peer.id);
-	}
-	else{
-		console.log( color, peer.id, data.type );
-	}
-
-	console.log('\x1b[90m%s\x1b[0m', JSON.stringify(data, true, 2).replace(/(^\{\n|\}$)/g, '') );
-}
-
 	});
 };
+
+
+function log(from, type, to, data){
+
+	console.log( log.LABEL, from, type, to||'' );
+	if(data){
+		console.log( log.DATA, JSON.stringify(data, true, 2).replace(/(^\{\n|\}$)/g, '') );
+	}
+}
+
+log.LABEL = '\x1b[93m-> %s\x1b[0m: \x1b[92m%s\x1b[0m \x1b[96m%s -> \x1b[0m';
+log.DATA = '\x1b[90m%s\x1b[0m';
+
