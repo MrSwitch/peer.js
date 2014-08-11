@@ -92,9 +92,10 @@ define([
 				data = args[1];
 
 			expect(args[0]).to.be.eql('thread:connect');
-			expect( data ).to.have.property('thread');
-			expect( data.thread ).to.eql( threadID );
-			expect( data.to ).to.eql( remoteID );
+
+			expect( data ).to.be.an('object');
+			expect( data ).to.have.property('thread', threadID);
+			expect( data ).to.have.property('to', remoteID);
 		});
 
 		it("should trigger thread:connect locally, when thread() is called", function(){
