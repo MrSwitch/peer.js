@@ -123,10 +123,26 @@ define([
 		};
 
 
-		// Merge incoming constraints
-		if(constraints){
-			//stream.setConstraints( constraints );
-		}
+		// Listen out for stream:disconnected
+		// this is triggered by the ICE candidate state change
+		// It can be used to infer that the connection has dissappeared
+		// We can use it to disable a media stream
+		var remotemedia;
+		stream.on('stream:disconnected', function(){
+
+			// Has a remotemedia value been proffered
+			if( remotemedia ){
+
+				// Mimic the removal of the media
+				stream.emit('media:disconnect', remotemedia);
+
+				// Reinstate it if the connection is reestablished
+				stream.one('stream:connected', function(){
+					stream.emit('media:connect',remotemedia);
+				});
+			}
+
+		});
 
 
 		// Peer Connection
@@ -181,6 +197,8 @@ define([
 			e.from = id;
 			stream.emit('media:connect', e);
 
+			remotemedia = e;
+
 
 			// Listen to ended event
 		/*	e.stream.addEventListener('ended', function(){
@@ -195,6 +213,8 @@ define([
 		// pc.addEventListener("removestream", works in Chrome
 		// pc.onremovestream works in Chrome and FF.
 		pc.onremovestream = function(e){
+
+			remotemedia = null;
 			e.from = id;
 			stream.emit('media:disconnect', e);
 

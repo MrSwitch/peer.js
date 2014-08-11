@@ -41,7 +41,7 @@ define([
 	describe("models/streams", function(){
 
 		// Some operations take a while to setup (especially on my old windows laptop) nothing we can do, but wait.
-		this.timeout(5000);
+		this.timeout(15000);
 
 		var peer;
 
@@ -453,6 +453,41 @@ define([
 				peerB.addMedia();
 
 				var timer = setTimeout(done, 5000);
+			});
+
+			it("should trigger media:disconnect when the other peer is closed", function(done){
+
+				this.timeout(20000);
+
+				var peerA = Peer('A');
+				var peerB = Peer('B');
+
+				peerA.on('stream:connected', function(){
+
+					// listen for a media disconnect event
+					peerA.on('media:disconnect', function(){
+						clearTimeout(timer);
+						done();
+					});
+
+					// Lets wait for media:disconnect to fire
+					var timer = setTimeout(function(){
+						done( new Error("triggered media:connect event") );
+					}, 20000);
+
+					// Close the other peer
+					setTimeout(function(){
+						peerB.streams['A'].pc.close();
+					},2000);
+				});
+
+
+				// Peer creates a connection implicitly definging the peerA accepts video
+				peerB.stream('A', {local:{video:true},remote:{video:true}});
+				// Peer A changes their streams explicitly nullifying local constraints
+				peerA.stream('B', {local:{video:true},remote:{video:true}});
+
+	
 			});
 
 		});
