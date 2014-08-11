@@ -73,7 +73,7 @@ define(function(){
 			preventDefault = true;
 		};
 
-		console.log('Triggered: ' + name, JSON.stringify(evt));
+		console.log('Triggered: ' + name, evt);
 		var a = name.split( separator );
 		a.push( WILDCHAR );
 

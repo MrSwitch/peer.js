@@ -114,6 +114,7 @@ define([
 			}
 
 			var action = function(){
+				console.log("sending:", data);
 				socket.send(JSON.stringify(data));
 			};
 

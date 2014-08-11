@@ -156,7 +156,7 @@ function(
 
 			var remoteID = e.from;
 
-			console.log("thread:change", JSON.stringify(e));
+			console.log("thread:change", e);
 
 
 			// Must include a thread id.
