@@ -127,18 +127,17 @@ define([
 		// this is triggered by the ICE candidate state change
 		// It can be used to infer that the connection has dissappeared
 		// We can use it to disable a media stream
-		var remotemedia;
 		stream.on('stream:disconnected', function(){
 
 			// Has a remotemedia value been proffered
-			if( remotemedia ){
+			if( stream.remotemedia ){
 
 				// Mimic the removal of the media
-				stream.emit('media:disconnect', remotemedia);
+				stream.emit('media:disconnect', stream.remotemedia);
 
 				// Reinstate it if the connection is reestablished
 				stream.one('stream:connected', function(){
-					stream.emit('media:connect',remotemedia);
+					stream.emit('media:connect', stream.remotemedia);
 				});
 			}
 
@@ -197,7 +196,7 @@ define([
 			e.from = id;
 			stream.emit('media:connect', e);
 
-			remotemedia = e;
+			stream.remotemedia = e;
 
 
 			// Listen to ended event
