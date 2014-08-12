@@ -191,7 +191,7 @@ Peer.prototype.send = function(data){
 		case "thread:connect":
 
 			// Get or Create a thread;
-			addThread.call(this, data.thread, data);
+			this.addThread( data.thread, data);
 
 		break;
 
@@ -201,7 +201,7 @@ Peer.prototype.send = function(data){
 		case "thread:disconnect":
 
 			// Untread
-			removeThread.call(this, data.thread, data);
+			this.removeThread( data.thread, data );
 
 		break;
 
@@ -221,7 +221,7 @@ Peer.prototype.send = function(data){
 
 		case 'socket:disconnect':
 
-			peerDisconnect.call( this, data );
+			this.close();
 
 		break;
 
@@ -283,119 +283,6 @@ Peer.prototype.message = function(data, rcpt_id){
 Peer.prototype.close = function(){
 	
 	// notify all listeners
-	peerDisconnect.call(this);
-
-	// Remove from peer list
-	peers[this.id] = null;
-
-	delete this.onmessage;
-};
-
-
-
-
-
-// ////////////////////////////
-// Threads
-// Add thread
-
-function addThread(thread_id, data){
-
-	var id = this.id;
-
-	// Get the thread
-	var thread = Thread(thread_id);
-
-	// Add this peer to the thread array
-	if( thread.indexOf(id) === -1 ){
-		thread.push(id);
-		this.threads.push(thread);
-	}
-
-	if(!data.to){
-		// Broadcast your thread:connect event to everyone in the thread
-		this.broadcast( thread_id, data );
-	}
-	else{
-		// Send it to a particular user
-		this.message( data, data.to );
-	}
-}
-
-
-
-function removeThread(thread_id, data){
-
-	// Get the thread
-	var thread = Thread(thread_id);
-
-	// remove this from thread
-	var index = thread.indexOf(this);
-
-	if(index>-1){
-		thread.splice(index,1);
-	}
-
-	// Broadcast your thread:disconnect event to everyone in the thread
-	this.broadcast( thread_id, data );
-
-}
-
-//////////////////////////////////
-// Add tags
-
-
-
-// Add personal identifying data,
-// Typically this is either an email address or an ID, such as ....
-// `facebook_id`@facebook
-// `windows_id`@windows
-// `google_id`@google
-
-function addTags(data){
-
-	var peer = this;
-
-	// The session has has a thirdparty ID
-	// Loop through this Array
-	// Add this profile reference to the global store
-	// Loop though all tag_messages messages and send them to this session
-	// Post back to this user all the session data in the friend list who want to know when this user is online
-	(data.tag instanceof Array ? data.tag : [data.tag]).forEach(function(tag){
-
-
-		// Add this tag to the current strand
-
-		peer.tags.push( tag );
-
-
-		// ADD to profiles
-		// Has this UserID already been assoicated with this session?
-
-		store.call( tag_sessions, tag, peer.id );
-
-
-		// Return all tag_messages messages back to this user
-
-		if( tag in tag_messages ){
-
-			// Loop through and deliver tag_messages messages
-
-			tag_messages[tag].forEach(function(data){
-
-				// Send to self
-				peer.onmessage(data);
-
-			});
-
-		}
-	});
-}
-
-
-
-function peerDisconnect(){
-
 	var peer = this,
 		id = this.id;
 
@@ -455,17 +342,14 @@ function peerDisconnect(){
 
 		// Tell everyone else in the thread
 
-		peer.broadcast( thread.id, {
+		peer.removeThread( thread.id, {
 			type : 'thread:disconnect'
 		});
 
-
-		// Remove this session from the thread
-		
-		var index = thread.indexOf( this.id );
-		thread.splice(index,1);
-
 	});
+
+	// Remove list of threads
+	this.threads = [];
 
 
 	// Broadcast disconnect to anyone you've sent a message too.
@@ -477,7 +361,118 @@ function peerDisconnect(){
 		}, peer_id );
 
 	});
+
+	this.recipients = [];
+
+
+	// Remove from peer list
+	peers[this.id] = null;
+
+	delete this.onmessage;
+};
+
+
+
+
+
+// ////////////////////////////
+// Threads
+// Add thread
+
+Peer.prototype.addThread = function(thread_id, data){
+
+	var id = this.id;
+
+	// Get the thread
+	var thread = Thread(thread_id);
+
+	// Add this peer to the thread array
+	if( thread.indexOf(id) === -1 ){
+		thread.push(id);
+		this.threads.push(thread);
+	}
+
+	if(!data.to){
+		// Broadcast your thread:connect event to everyone in the thread
+		this.broadcast( thread_id, data );
+	}
+	else{
+		// Send it to a particular user
+		this.message( data, data.to );
+	}
+};
+
+
+
+Peer.prototype.removeThread = function(thread_id, data){
+
+	// Get the thread
+	var thread = Thread(thread_id);
+
+	// remove peer from thread
+	var index = thread.indexOf(this.id);
+
+	if(index>-1){
+		thread.splice(index,1);
+	}
+
+	// Broadcast thread:disconnect event to everyone in the thread
+	this.broadcast( thread_id, data );
+};
+
+//////////////////////////////////
+// Add tags
+
+
+
+// Add personal identifying data,
+// Typically this is either an email address or an ID, such as ....
+// `facebook_id`@facebook
+// `windows_id`@windows
+// `google_id`@google
+
+function addTags(data){
+
+	var peer = this;
+
+	// The session has has a thirdparty ID
+	// Loop through this Array
+	// Add this profile reference to the global store
+	// Loop though all tag_messages messages and send them to this session
+	// Post back to this user all the session data in the friend list who want to know when this user is online
+	(data.tag instanceof Array ? data.tag : [data.tag]).forEach(function(tag){
+
+
+		// Add this tag to the current strand
+
+		peer.tags.push( tag );
+
+
+		// ADD to profiles
+		// Has this UserID already been assoicated with this session?
+
+		store.call( tag_sessions, tag, peer.id );
+
+
+		// Return all tag_messages messages back to this user
+
+		if( tag in tag_messages ){
+
+			// Loop through and deliver tag_messages messages
+
+			tag_messages[tag].forEach(function(data){
+
+				// Send to self
+				peer.onmessage(data);
+
+			});
+
+		}
+	});
 }
+
+
+
 
 
 
