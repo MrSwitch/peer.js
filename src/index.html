@@ -430,16 +430,31 @@ else{
 
 		addStreamListeners(stream);
 
-		var url = window.URL.createObjectURL(stream);
 		var vid = document.createElement('video');
 		vid.style.background = '-webkit-canvas(loading) no-repeat center center';
-		vid.src= url;
 		vid.autoplay = true;
 
 		// QuerySelector
 		document.querySelector('div.demo').appendChild(vid);
 
 		vid.play();
+
+		var url;
+
+		function setSrc(){
+			if(vid.videoWidth<10){
+				console.log("video refresh", vid.clientWidth, vid.videoWidth, stream.id, vid);
+				if(url){
+					window.URL.revokeObjectURL(url);
+				}
+				url = window.URL.createObjectURL(stream);
+				vid.src = url;
+				setTimeout(setSrc, 100);
+			}
+		}
+
+		setSrc();
+
 
 		return vid;
 	}
