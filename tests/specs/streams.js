@@ -488,6 +488,10 @@ define([
 				peerA.stream('B', {local:{video:true},remote:{video:true}});
 
 	
+				// Add video to the remove peer
+				setTimeout(function(){
+					peerB.addMedia();
+				},2000);
 			});
 
 		});

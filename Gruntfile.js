@@ -1,122 +1,121 @@
 module.exports = function(grunt) {
 
-  grunt.initConfig({
-    pkg: grunt.file.readJSON('package.json'),
-    requirejs: {
-      js: {
-        options: {
-          findNestedDependencies: true,
-          baseUrl: './src/',
-          preserveLicenseComments: false,
-          optimize: 'uglify2',
-          mainConfigFile: './src/require-config.js',
-          name: 'peer',
-          out: 'dist/thread.js',
-          wrap: {
-              start: "(function(window,document,navigator){",
-              end: "})(window,document,navigator);"
-          },
-          //A function that will be called for every write to an optimized bundle
-          //of modules. This allows transforms of the content before serialization.
-          onBuildWrite: function (moduleName, path, contents) {
-              //Always return a value.
-              //This is just a contrived example.
-              return contents.replace(/console\.log\((.*?)\)/g, '');
-          },
-          onModuleBundleComplete: function (data) {
-            var fs = require('fs'),
-              amdclean = require('amdclean'),
-              outputFile = data.path;
-            fs.writeFileSync(outputFile, amdclean.clean({
-              'filePath': outputFile
-            }));
-          }
-        }
-      }
-    },
-    jshint: {
-      files: ['Gruntfile.js', 'src/**/*.js'],//, 'test/**/*.js'],
-      options: {
-        // options here to override JSHint defaults
-        globals: {
-          console: true,
-          module: true,
-          document: true
-        }
-      }
-    },
-    mochaTest: {
-      test: {
-        options: {
-          reporter: 'spec',
-          globals : {
-            expect : require("expect")
-          }
-        },
-        src: ['tests/**/*.js']
-      }
-    },
-    mocha_phantomjs: {
-      options: {
-        // 'reporter': 'xunit',
-        // 'output': 'test/results/mocha.xml'
-      },
-      all: ['tests/specs/index.html']
-    },
+	grunt.initConfig({
+		pkg: grunt.file.readJSON('package.json'),
+		requirejs: {
+			js: {
+				options: {
+					findNestedDependencies: true,
+					baseUrl: './src/',
+					preserveLicenseComments: false,
+					optimize: 'uglify2',
+					mainConfigFile: './src/require-config.js',
+					name: 'peer',
+					out: 'dist/peer.js',
+					wrap: {
+							start: "(function(window,document,navigator){",
+							end: "})(window,document,navigator);"
+					},
+					//A function that will be called for every write to an optimized bundle
+					//of modules. This allows transforms of the content before serialization.
+					onBuildWrite: function (moduleName, path, contents) {
+							//Always return a value.
+							//This is just a contrived example.
+							return contents.replace(/console\.log\((.*?)\);/g, '');
+					},
+					onModuleBundleComplete: function (data) {
+						var fs = require('fs'),
+							amdclean = require('amdclean'),
+							outputFile = data.path;
+						fs.writeFileSync(outputFile, amdclean.clean({
+							'filePath': outputFile
+						}));
+					}
+				}
+			}
+		},
+		jshint: {
+			files: ['Gruntfile.js', 'src/**/*.js'],//, 'test/**/*.js'],
+			options: {
+				// options here to override JSHint defaults
+				globals: {
+					console: true,
+					module: true,
+					document: true
+				}
+			}
+		},
+		mochaTest: {
+			test: {
+				options: {
+					reporter: 'spec',
+					globals : {
+						expect : require("expect")
+					}
+				},
+				src: ['tests/**/*.js']
+			}
+		},
 
-    watch: {
-      files: ['<%= jshint.files %>'],
-      tasks: ['jshint']
-    },
+		mocha_phantomjs: {
+			options: {
+				// 'reporter': 'xunit',
+				// 'output': 'test/results/mocha.xml'
+			},
+			all: ['tests/specs/index.html']
+		},
 
-    // Shunt files around
-    shunt : {
-      // Shunt the documents of our project
-      docs : {
-        "./index.html" : "src/index.html",
-        "./README.md" : "src/index.html"
-      },
+		watch: {
+			files: ['<%= jshint.files %>'],
+			tasks: ['jshint']
+		},
 
-      // Shunt the source files into a distribution directory
-      src : {
-        // Create files newFile=>Packages
-        "./bin/document.min.css" : "../_packages/document.css",
-        "./bin/document.min.js" : "../_packages/document.js",
-        "./bin/index.html" : "src/index.html",
-        "./bin/peer.js" : "src/peer.js",
-        "./bin/app.js" : "src/app.js",
+		// Shunt files around
+		shunt : {
+			// Shunt the documents of our project
+			docs : {
+				"./README.md" : "src/index.html",
+				"./index.html" : "src/index.html",
+				options : {
+					replace : {
+						"./peer.js" : "https://peer-server.herokuapp.com/peer.min.js"
+					}
+				}
+			},
 
-        // Extend options for this task
-        options : {
-          // This is the root directory on the local filesystem where root referenced scripts can be found.
-          // For instance, <script src="/vendor/jquery.js"></script> existed, and was pointing to a file outside this project*
-          // (*you might do this if you have a lot of projects)
-          // Then this is the full path to the web root.
-          root_dir : "D:/Projects/",
+			// Shunt the source files into a distribution directory
+			src : {
+				// Create files newFile=>Packages
+				"./bin/adorn.min.css" : "../adorn/adorn.css",
+				"./bin/adorn.min.js" : "../adorn/adorn.js",
+				"./bin/index.html" : "./src/index.html",
+				"./bin/peer.js" : "./dist/peer.js",
 
-          overrideRoot : 'http://adodson.com/',
-        }
-      },
+				// Extend options for this task
+				options : {
+					// This is the root directory on the local filesystem where root referenced scripts can be found.
+					// For instance, <script src="/vendor/jquery.js"></script> existed, and was pointing to a file outside this project*
+					// (*you might do this if you have a lot of projects)
+					// Then this is the full path to the web root.
+					root_dir : "D:/Projects/",
 
-      options : {
-        replace : {
-          "http://localhost:5000/peer.js" : "https://peer-server.herokuapp.com/peer.min.js"
-        }
-      }
-    },
+					overrideRoot : 'http://adodson.com/',
+				}
+			},
+		},
 
-  });
+	});
 
-  grunt.loadNpmTasks('grunt-contrib-jshint');
-  grunt.loadNpmTasks('grunt-contrib-watch');
-  grunt.loadNpmTasks('grunt-contrib-watch');
-  grunt.loadNpmTasks('grunt-mocha-test');
-  grunt.loadNpmTasks('grunt-mocha-phantomjs');
+	grunt.loadNpmTasks('grunt-contrib-jshint');
+	grunt.loadNpmTasks('grunt-contrib-watch');
+	grunt.loadNpmTasks('grunt-contrib-watch');
+	grunt.loadNpmTasks('grunt-mocha-test');
+	grunt.loadNpmTasks('grunt-mocha-phantomjs');
 
-  grunt.loadNpmTasks('grunt-contrib-requirejs');
-  grunt.loadNpmTasks('shunt');
+	grunt.loadNpmTasks('grunt-contrib-requirejs');
+	grunt.loadNpmTasks('shunt');
 
-  grunt.registerTask('test', ['jshint', 'mochaTest']);
-  grunt.registerTask('default', ['jshint','mocha_phantomjs']);
+	grunt.registerTask('test', ['jshint', 'mochaTest']);
+	grunt.registerTask('default', ['jshint','requirejs']);
 
 };

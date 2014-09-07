@@ -1,4 +1,8 @@
-define(function(){
+define([
+	'./bind'
+],function(
+	bind
+){
 
 	// Shim up the getUserMedia API
 	// Wrap this to a custom variable but bind it on the navigator object to work
@@ -7,7 +11,8 @@ define(function(){
 		navigator.webkitGetUserMedia ||
 		navigator.mozGetUserMedia ||
 		navigator.msGetUserMedia ||
-		navigator.oGetUserMedia
+		navigator.oGetUserMedia ||
+		function(){}
 	).bind(navigator);
 
 	return function getUserMedia(constraints, success, failure){

@@ -1,7 +1,6 @@
 var peer = require('./server/app.js');
-
 var connect = require('connect');
-var server = connect().use( connect.static( __dirname + '/src') );
+var server = connect().use( connect.static( __dirname + '/bin') );
 var http_port = process.env.PORT || 5000;
 var https_port = process.env.PORT || 5001;
 

@@ -213,7 +213,7 @@ function(
 					thread : thread.id,
 					constraints : thread.constraints
 				};
-				console.log("SEND", JSON.stringify(data));
+				console.log("SEND", JSON.stringify(data) );
 				this.send('thread:connect', data);
 			}
 		});
