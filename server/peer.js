@@ -440,7 +440,7 @@ function addTags(data){
 	// Add this profile reference to the global store
 	// Loop though all tag_messages messages and send them to this session
 	// Post back to this user all the session data in the friend list who want to know when this user is online
-	(data.tag instanceof Array ? data.tag : [data.tag]).forEach(function(tag){
+	(data.data instanceof Array ? data.data : [data.data]).forEach(function(tag){
 
 
 		// Add this tag to the current strand

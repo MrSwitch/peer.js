@@ -16,6 +16,7 @@ define([
 	'./models/socket',
 	'./models/threads',
 	'./models/stream',
+//	'./models/files',
 	'./models/localmedia'
 
 ], function(
@@ -25,6 +26,7 @@ define([
 	Socket,
 	Threads,
 	Streams,
+//	Files,
 	LocalMedia
 ){
 
@@ -56,7 +58,7 @@ extend( peer, {
 			data = [data];
 		}
 
-		this.send('session:tag', data );
+		this.send('session:tag', {data:data} );
 
 		return this;
 	},
@@ -71,7 +73,7 @@ extend( peer, {
 			data = [data];
 		}
 
-		this.send('session:watch', data );
+		this.send('session:watch', {to:data} );
 
 		return this;
 	},
@@ -95,6 +97,9 @@ Streams.call(peer);
 
 // Extend with local Media
 LocalMedia.call(peer);
+
+// Extend with File Transfer
+// Files.call(peer);
 
 
 

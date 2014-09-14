@@ -2,7 +2,7 @@
 // Extend
 //
 define([
-	'../utils/extend'
+	'./extend'
 ],function(extend){
 	return function(r){
 		var x, a = Array.prototype.splice.call(arguments,0);
