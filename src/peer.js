@@ -14,6 +14,7 @@ define([
 	'./lib/featureDetect',
 
 	'./models/socket',
+	'./models/presence',
 	'./models/threads',
 	'./models/stream',
 //	'./models/files',
@@ -24,6 +25,7 @@ define([
 	extend,
 	featureDetect,
 	Socket,
+	Presence,
 	Threads,
 	Streams,
 //	Files,
@@ -48,36 +50,6 @@ extend( peer, {
 	// 
 	support : featureDetect,
 
-
-	/////////////////////////////////////
-	// TAG / WATCH LIST
-	//
-	tag : function(data){
-
-		if(!(data instanceof Array)){
-			data = [data];
-		}
-
-		this.send('session:tag', {data:data} );
-
-		return this;
-	},
-
-
-	//
-	// Add and watch personal identifications
-	//
-	watch : function(data){
-
-		if(!(data instanceof Array)){
-			data = [data];
-		}
-
-		this.send('session:watch', {to:data} );
-
-		return this;
-	},
-
 });
 
 
@@ -88,6 +60,10 @@ window.peer = peer;
 
 // Extend with the Web Sockets methods: connect(), send()
 Socket.call(peer);
+
+// Presence
+// Tag the current session with a unique identifier so that others can be notified about your presense and you can be notified about others
+Presence.call(peer);
 
 // Extend with the thread management: thread(), threads{}
 Threads.call(peer);

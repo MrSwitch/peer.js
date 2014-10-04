@@ -297,13 +297,13 @@ describe('Peer Socket Tag/Watch', function(){
 	});
 
 
-	it("should tag users by session:tag", function(){
+	it("should tag users by presence:tag", function(){
 
 		var tag = 'lauren.ipson@gmail.com';
 
 		peer1.send({
-			type : 'session:tag',
-			tag : [tag]
+			type : 'presence:tag',
+			data : [tag]
 		});
 
 
@@ -312,7 +312,7 @@ describe('Peer Socket Tag/Watch', function(){
 
 
 
-	it("should pass through messages to users who have themsleves via session:tag", function(done){
+	it("should pass through messages to users who have themsleves via presence:tag", function(done){
 
 		var tag = 'lauren.ipson@gmail.com';
 
@@ -324,8 +324,8 @@ describe('Peer Socket Tag/Watch', function(){
 
 		// identify the first user with the tag
 		peer1.send({
-			type : 'session:tag',
-			tag : [tag]
+			type : 'presence:tag',
+			data : [tag]
 		});
 
 		// Send a message through to that user
@@ -360,8 +360,8 @@ describe('Peer Socket Tag/Watch', function(){
 
 		// identify the first user with the tag
 		peer1.send({
-			type : 'session:tag',
-			tag : [tag]
+			type : 'presence:tag',
+			data : [tag]
 		});
 
 		expect( spy.callCount ).to.be.eql( 1 );
@@ -369,8 +369,8 @@ describe('Peer Socket Tag/Watch', function(){
 
 		// identify the first user with the tag
 		peer2.send({
-			type : 'session:tag',
-			tag : [tag]
+			type : 'presence:tag',
+			data : [tag]
 		});
 
 		expect( spy.callCount ).to.be.eql( 2 );

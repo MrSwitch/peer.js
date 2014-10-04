@@ -212,7 +212,7 @@ Peer.prototype.send = function(data){
 		// `windows_id`@windows
 		// `google_id`@google
 		
-		case 'session:tag':
+		case 'presence:tag':
 
 			addTags.call( this, data );
 
@@ -434,6 +434,7 @@ Peer.prototype.removeThread = function(thread_id, data){
 function addTags(data){
 
 	var peer = this;
+
 
 	// The session has has a thirdparty ID
 	// Loop through this Array

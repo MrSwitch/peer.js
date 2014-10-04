@@ -472,14 +472,17 @@ else{
 	});
 </script>
 
-<p>Socket events when a users friend comes online</p>
 
-<script>
+<h2>Presence</h2>
+<p>Tag your session and watch for other tags in the presence api.</p>
 
+
+<script class="pre">
 
 	// Friend connect
-	// A frienda session is connected
-	peer.on( 'socket:watch', function(e){
+	// A frienda session has connected
+
+	peer.on( 'presence:watch', function(e){
 
 		// Connected
 
@@ -492,7 +495,7 @@ else{
 
 	// Friend Disconnect
 	// A friends session has disconnected
-	peer.on( 'socket:watch', function(e){
+	peer.on( 'presence:watch', function(e){
 
 		// Disconnected
 
@@ -501,6 +504,13 @@ else{
 		// Send a request for the friends status 'friend:status'
 		/////////////////////
 	});
+
+</script>
+
+
+<script>
+
+
 
 	// (OPTIONAL)
 	// Invoking a call is as simple as creating a new thread and sending an arbitary event to a friend
