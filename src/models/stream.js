@@ -38,6 +38,272 @@ define([
 	var media;
 
 
+
+	// Extend our Global object with the stream methods, collections and listeners
+
+	return function(){
+
+		// A collection of Peer Connection streams
+
+		this.streams = {};
+
+
+		// Stream
+		// Establishes a connection with a user
+
+		this.stream = function( id, constraints, offer ){
+
+			console.log("stream", arguments);
+
+			if(!id){
+				throw 'streams(): Expecting an ID';
+			}
+			
+			// Does this stream exist?
+			var stream = this.streams[id];
+
+			if(!stream){
+
+				// Create a new stream
+				stream = this.streams[id] = Stream( id, constraints, this.stun_server, this );
+
+				// Update an existing stream with fresh constraints
+				if(constraints){
+					stream.setConstraints( constraints );
+				}
+
+				// Output pupblished events from this stream
+				stream.on('*', this.emit.bind(this) );
+
+				// Control
+				// This should now work, will have to reevaluate
+				this.on('localmedia:connect', stream.addStream);
+				this.on('localmedia:disconnect', stream.removeStream);
+
+				//
+				// Add the current Stream
+				if(this.localmedia){
+					stream.addStream(this.localmedia);
+				}
+
+				// intiiate the PeerConnection controller
+				// Add the offer to the stream
+				stream.open(offer || null);
+
+				return stream;
+			}
+
+			else if(constraints){
+
+				// Update an existing stream with fresh constraints
+				stream.setConstraints( constraints );
+			}
+			else if(offer!==undefined){
+				stream.open( offer );
+			}
+
+			return stream;
+		};
+
+
+
+
+
+		//////////////////////////////////////////////////
+		// CHANNEL MESSAGING
+		//////////////////////////////////////////////////
+
+		// Store the socket send function
+		var socketSend = this.send;
+
+		// Change it
+		this.send = function(name, data, callback){
+
+			if(typeof name === 'object'){
+				callback = data;
+				data = name;
+				name = data.type;
+			}
+
+			var recipient = data.to,
+				stream = this.streams[recipient];
+
+			if( recipient && stream && stream.channel && stream.channel.readyState==="open"){
+				if(name){
+					data.type = name;
+				}
+				var str = JSON.stringify(data);
+				try{
+					stream.channel.send(str);
+					return;
+				}
+				catch(e){
+
+					// Other party could have disappeared
+					// code: 19
+					// message: "Failed to execute 'send' on 'RTCDataChannel': Could not send data"
+					// name: "NetworkError"
+
+					stream.channel = null;
+
+					// Retrigger the stream channel creation
+
+					this.stream( recipient, null, null );
+
+				}
+			}
+
+			// Else fallback to the socket method
+			socketSend.call(this, name, data, callback);
+		};
+
+
+
+
+		//////////////////////////////////////////////////
+		// STREAMS
+		//////////////////////////////////////////////////
+
+
+		// stream:connect
+		// pass through any stream connection events
+
+		this.on('stream:connect, stream:change, stream:constraints', function( e ){
+
+			// What has changed
+			var constraints = {};
+
+			// we have information on what the remote constraints are
+			if( e.remote ){
+				constraints.remote = merge( default_constraints, e.remote );
+			}
+			// We have the local constraints
+			// Let also check that this has no-from field
+			if( e.local && !e.from ){
+				constraints.local = merge( default_constraints, e.local );
+			}
+
+			// Create/Update the stream with the constraints offered.
+			this.stream( e.from || e.id, constraints );
+
+		});
+
+
+
+
+		// stream:offer
+		// A client has sent a Peer Connection Offer
+		// An Offer Object:
+		//  -  string: SDP packet, 
+		//  -  string array: contraints
+
+		this.on('stream:offer, stream:makeoffer', function(e){
+
+			// Creates a stream:answer event
+			this.stream( e.from, null, e.data || null );
+
+		});
+
+
+
+		//
+		// stream:answer
+		// 
+		this.on('stream:answer', function(e){
+
+			console.log("on:answer: Answer recieved, connection created");
+			this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription( e.data ) );
+
+		});
+
+
+
+		// 
+		// Relay ice Candidates
+		//
+
+		this.on('stream:candidate', function(e){
+
+			var uid = e.from,
+				data = e.data,
+				stream = this.streams[uid];
+
+			if(!stream){
+				console.error("Candidate needs initiation");
+				return;
+			}
+
+			var candidate = new RTCIceCandidate({
+				sdpMLineIndex	: data.label,
+				candidate		: data.candidate
+			});
+
+			stream.pc.addIceCandidate(candidate);
+		});
+
+
+		// Listen to change to the local media, and remove it streams if this occurs
+
+		this.on('localmedia:disconnect', function(mediastream){
+			// Loop through streams and call removeStream
+			for(var x in this.streams){
+				this.streams[x].pc.removeStream(mediastream);
+			}
+		});
+
+
+		// Channels
+		this.on('channel:connect', function(e){
+			//
+			// Process 
+			// console.log('channel:connect',e);
+		});
+
+		// 
+		this.on('channel:message', function(data){
+
+			if("callback_response" in data){
+				var i = data.callback_response;
+				delete data.callback_response;
+				this.callback[i].call(peer, data);
+				return;
+			}
+
+			var type = data.type;
+
+			this.emit(type, data, function(o){
+				// if callback was defined, lets send it back
+				if("callback" in data){
+					o.to = data.from;
+					o.callback_response = data.callback;
+					this.send(o);
+				}
+			});
+		});
+
+	};
+
+
+
+
+	// ////////////////////////////////////////////////////////////
+	//
+	//
+	// Individual stream controller
+	//
+	//
+	// ////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
 	function Stream( id, constraints, STUN_SERVER, peer ){
 
 		// Operations
@@ -428,249 +694,5 @@ define([
 		}
 	}
 
-
-	// Extend our Global object with the stream methods, collections and listeners
-
-	return function(){
-
-		// A collection of Peer Connection streams
-
-		this.streams = {};
-
-
-		// Stream
-		// Establishes a connection with a user
-
-		this.stream = function( id, constraints, offer ){
-
-			console.log("stream", arguments);
-
-			if(!id){
-				throw 'streams(): Expecting an ID';
-			}
-			
-			// Does this stream exist?
-			var stream = this.streams[id];
-
-			if(!stream){
-
-				// Create a new stream
-				stream = this.streams[id] = Stream( id, constraints, this.stun_server, this );
-
-				// Update an existing stream with fresh constraints
-				if(constraints){
-					stream.setConstraints( constraints );
-				}
-
-				// Output pupblished events from this stream
-				stream.on('*', this.emit.bind(this) );
-
-				// Control
-				// This should now work, will have to reevaluate
-				this.on('localmedia:connect', stream.addStream);
-				this.on('localmedia:disconnect', stream.removeStream);
-
-				//
-				// Add the current Stream
-				if(this.localmedia){
-					stream.addStream(this.localmedia);
-				}
-
-				// intiiate the PeerConnection controller
-				// Add the offer to the stream
-				stream.open(offer || null);
-
-				return stream;
-			}
-
-			else if(constraints){
-
-				// Update an existing stream with fresh constraints
-				stream.setConstraints( constraints );
-			}
-			else if(offer!==undefined){
-				stream.open( offer );
-			}
-
-			return stream;
-		};
-
-
-
-
-
-		//////////////////////////////////////////////////
-		// CHANNEL MESSAGING
-		//////////////////////////////////////////////////
-
-		// Store the socket send function
-		var socketSend = this.send;
-
-		// Change it
-		this.send = function(name, data, callback){
-
-			if(typeof name === 'object'){
-				callback = data;
-				data = name;
-				name = data.type;
-			}
-
-			var recipient = data.to,
-				stream = this.streams[recipient];
-
-			if( recipient && stream && stream.channel && stream.channel.readyState==="open"){
-				if(name){
-					data.type = name;
-				}
-				var str = JSON.stringify(data);
-				try{
-					stream.channel.send(str);
-					return;
-				}
-				catch(e){
-
-					// Other party could have disappeared
-					// code: 19
-					// message: "Failed to execute 'send' on 'RTCDataChannel': Could not send data"
-					// name: "NetworkError"
-
-					stream.channel = null;
-
-					// Retrigger the stream channel creation
-
-					this.stream( recipient, null, null );
-
-				}
-			}
-
-			// Else fallback to the socket method
-			socketSend.call(this, name, data, callback);
-		};
-
-
-
-
-		//////////////////////////////////////////////////
-		// STREAMS
-		//////////////////////////////////////////////////
-
-
-		// stream:connect
-		// pass through any stream connection events
-
-		this.on('stream:connect, stream:change, stream:constraints', function( e ){
-
-			// What has changed
-			var constraints = {};
-
-			// we have information on what the remote constraints are
-			if( e.remote ){
-				constraints.remote = merge( default_constraints, e.remote );
-			}
-			// We have the local constraints
-			// Let also check that this has no-from field
-			if( e.local && !e.from ){
-				constraints.local = merge( default_constraints, e.local );
-			}
-
-			// Create/Update the stream with the constraints offered.
-			this.stream( e.from || e.id, constraints );
-
-		});
-
-
-
-
-		// stream:offer
-		// A client has sent a Peer Connection Offer
-		// An Offer Object:
-		//  -  string: SDP packet, 
-		//  -  string array: contraints
-
-		this.on('stream:offer, stream:makeoffer', function(e){
-
-			// Creates a stream:answer event
-			this.stream( e.from, null, e.data || null );
-
-		});
-
-
-
-		//
-		// stream:answer
-		// 
-		this.on('stream:answer', function(e){
-
-			console.log("on:answer: Answer recieved, connection created");
-			this.streams[e.from].pc.setRemoteDescription( new RTCSessionDescription( e.data ) );
-
-		});
-
-
-
-		// 
-		// Relay ice Candidates
-		//
-
-		this.on('stream:candidate', function(e){
-
-			var uid = e.from,
-				data = e.data,
-				stream = this.streams[uid];
-
-			if(!stream){
-				console.error("Candidate needs initiation");
-				return;
-			}
-
-			var candidate = new RTCIceCandidate({
-				sdpMLineIndex	: data.label,
-				candidate		: data.candidate
-			});
-
-			stream.pc.addIceCandidate(candidate);
-		});
-
-
-		// Listen to change to the local media, and remove it streams if this occurs
-
-		this.on('localmedia:disconnect', function(mediastream){
-			// Loop through streams and call removeStream
-			for(var x in this.streams){
-				this.streams[x].pc.removeStream(mediastream);
-			}
-		});
-
-
-		// Channels
-		this.on('channel:connect', function(e){
-			//
-			// Process 
-			// console.log('channel:connect',e);
-		});
-
-		// 
-		this.on('channel:message', function(data){
-
-			if("callback_response" in data){
-				var i = data.callback_response;
-				delete data.callback_response;
-				this.callback[i].call(peer, data);
-				return;
-			}
-
-			var type = data.type;
-
-			this.emit(type, data, function(o){
-				// if callback was defined, lets send it back
-				if("callback" in data){
-					o.to = data.from;
-					o.callback_response = data.callback;
-					this.send(o);
-				}
-			});
-		});
-
-	};
 
 });
