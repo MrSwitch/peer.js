@@ -238,7 +238,14 @@ define([
 				candidate		: data.candidate
 			});
 
-			stream.pc.addIceCandidate(candidate);
+			try{
+				stream.pc.addIceCandidate(candidate);
+			}
+			catch(err){
+				console.error('Failed to set iceCandidate');
+				console.error( candidate );
+				console.error( err );
+			}
 		});
 
 
