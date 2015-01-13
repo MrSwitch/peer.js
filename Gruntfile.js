@@ -9,7 +9,6 @@ module.exports = function(grunt) {
 					baseUrl: './src/',
 					preserveLicenseComments: false,
 					optimize: 'uglify2',
-					mainConfigFile: './src/require-config.js',
 					name: 'peer',
 					out: 'dist/peer.js',
 					wrap: {
@@ -115,7 +114,8 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-requirejs');
 	grunt.loadNpmTasks('shunt');
 
-	grunt.registerTask('test', ['jshint', 'mochaTest']);
+	grunt.registerTask('test', ['jshint']);
+	grunt.registerTask('build', ['test','requirejs', 'shunt']);
 	grunt.registerTask('default', ['jshint','requirejs']);
 
 };
