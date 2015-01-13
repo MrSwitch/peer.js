@@ -427,14 +427,17 @@ Web socket events when a client connects to the server
 	});
 ```
 
-Socket events when a users friend comes online
+
+## Presence
+Tag your session and watch for other tags in the presence api.
+
 
 ```javascript
 
-
 	// Friend connect
-	// A frienda session is connected
-	peer.on( 'socket:watch', function(e){
+	// A frienda session has connected
+
+	peer.on( 'presence:watch', function(e){
 
 		// Connected
 
@@ -447,7 +450,7 @@ Socket events when a users friend comes online
 
 	// Friend Disconnect
 	// A friends session has disconnected
-	peer.on( 'socket:watch', function(e){
+	peer.on( 'presence:watch', function(e){
 
 		// Disconnected
 
@@ -456,6 +459,13 @@ Socket events when a users friend comes online
 		// Send a request for the friends status 'friend:status'
 		/////////////////////
 	});
+
+```
+
+
+```javascript
+
+
 
 	// (OPTIONAL)
 	// Invoking a call is as simple as creating a new thread and sending an arbitary event to a friend
