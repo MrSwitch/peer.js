@@ -3,8 +3,8 @@
 // Requires Socket.IO
 //
 var socket = require("socket.io");
-
 var Peer = require("./server/peer.js");
+
 
 
 module.exports = function(app){
@@ -70,5 +70,5 @@ function log(from, type, to, data){
 }
 
 log.LABEL = '\x1b[93m-> %s\x1b[0m: \x1b[92m%s\x1b[0m \x1b[96m%s -> \x1b[0m';
-log.DATA = '\x1b[90m%s\x1b[0m';
 
+log.DATA = '\x1b[90m%s\x1b[0m';

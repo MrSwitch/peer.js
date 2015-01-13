@@ -78,7 +78,7 @@ module.exports = function(grunt) {
 				"./index.html" : "src/index.html",
 				options : {
 					replace : {
-						"./peer.js" : "https://peer-server.herokuapp.com/peer.min.js"
+						"./peer.js" : "https://peers.herokuapp.com/peer.min.js"
 					}
 				}
 			},
@@ -97,9 +97,9 @@ module.exports = function(grunt) {
 					// For instance, <script src="/vendor/jquery.js"></script> existed, and was pointing to a file outside this project*
 					// (*you might do this if you have a lot of projects)
 					// Then this is the full path to the web root.
-					root_dir : "D:/Projects/",
-
-					overrideRoot : 'http://adodson.com/',
+					replace : {
+						"/adorn/adorn." : "/adorn.min."
+					}
 				}
 			},
 		},
