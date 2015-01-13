@@ -2,24 +2,24 @@
 // Peer Server
 // Requires Socket.IO
 //
-var socket = require("socket.io");
+var Server = require("socket.io");
 var Peer = require("./server/peer.js");
 
 
 
 module.exports = function(app){
 
-	var io=socket.listen(app);
-//	io.enable('browser client minification');  // send minified client
-	io.enable('browser client etag');          // apply etag caching logic based on version number
-	io.enable('browser client gzip');          // gzip the file
+	var io = Server(app);
+	// io.enable('browser client minification');  // send minified client
+	// io.enable('browser client etag');          // apply etag caching logic based on version number
+	// io.enable('browser client gzip');          // gzip the file
 	io.set('log level', 1);                    // reduce logging
 
-	// This has to be run on port 80
-	io.configure(function (){
-		io.set("transports", ["xhr-polling"]);
-		io.set("polling duration", 10);
-	});
+	// // This has to be run on port 80
+	// io.configure(function (){
+	//  io.set("transports", ["xhr-polling"]);
+	//  io.set("polling duration", 10);
+	// });
 
 
 	//////////////////////////////////

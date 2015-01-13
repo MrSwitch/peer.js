@@ -8,7 +8,7 @@
     "chrome": "open -a \"Google Chrome\" --args --use-fake-ui-for-media-stream --use-fake-device-for-media-stream"
   },
   "dependencies": {
-    "socket.io": "^0.9.16",
+    "socket.io": "^1.2.1",
     "connect": "~2.13.0"
   },
   "devDependencies": {
