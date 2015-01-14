@@ -85,8 +85,6 @@ module.exports = function(grunt) {
 			// Shunt the source files into a distribution directory
 			src : {
 				// Create files newFile=>Packages
-				"./bin/adorn.min.css" : "../adorn/adorn.css",
-				"./bin/adorn.min.js" : "../adorn/adorn.js",
 				"./bin/index.html" : "./src/index.html",
 				"./bin/peer.js" : "./dist/peer.js",
 
@@ -97,7 +95,7 @@ module.exports = function(grunt) {
 					// (*you might do this if you have a lot of projects)
 					// Then this is the full path to the web root.
 					replace : {
-						"/adorn/adorn." : "/adorn.min."
+						"\"/adorn/adorn." : "\"//adodson.com/adorn/adorn."
 					}
 				}
 			},
