@@ -8,7 +8,7 @@ module.exports = function(grunt) {
 					findNestedDependencies: true,
 					baseUrl: './src/',
 					preserveLicenseComments: false,
-					optimize: 'uglify2',
+					optimize: 'none',
 					name: 'peer',
 					out: 'dist/peer.js',
 					wrap: {
@@ -77,6 +77,7 @@ module.exports = function(grunt) {
 				"./index.html" : "src/index.html",
 				options : {
 					replace : {
+						'<script src="../bower_components/require-sync/require-sync.js"></script>' : '',
 						"./peer.js" : "https://peers.herokuapp.com/peer.min.js"
 					}
 				}
@@ -85,9 +86,8 @@ module.exports = function(grunt) {
 			// Shunt the source files into a distribution directory
 			src : {
 				// Create files newFile=>Packages
-				"./bin/adorn.min.css" : "../adorn/adorn.css",
-				"./bin/adorn.min.js" : "../adorn/adorn.js",
 				"./bin/index.html" : "./src/index.html",
+				"./dist/peer.min.js" : "./dist/peer.js",
 				"./bin/peer.js" : "./dist/peer.js",
 
 				// Extend options for this task
@@ -97,7 +97,8 @@ module.exports = function(grunt) {
 					// (*you might do this if you have a lot of projects)
 					// Then this is the full path to the web root.
 					replace : {
-						"/adorn/adorn." : "/adorn.min."
+						'<script src="../bower_components/require-sync/require-sync.js"></script>' : '',
+						'"/adorn/' : '"https://adodson.com/adorn/',
 					}
 				}
 			},
@@ -116,6 +117,6 @@ module.exports = function(grunt) {
 
 	grunt.registerTask('test', ['jshint']);
 	grunt.registerTask('build', ['test','requirejs', 'shunt']);
-	grunt.registerTask('default', ['jshint','requirejs']);
+	grunt.registerTask('default', ['test','requirejs']);
 
 };
