@@ -16,10 +16,10 @@ module.exports = function(app){
 	io.set('log level', 1);                    // reduce logging
 
 	// This has to be run on port 80
-	io.configure(function (){
-		io.set("transports", ["xhr-polling"]);
-		io.set("polling duration", 10);
-	});
+	// io.configure(function (){
+	// 	io.set("transports", ["xhr-polling"]);
+	// 	io.set("polling duration", 10);
+	// });
 
 
 	//////////////////////////////////
