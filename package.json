@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "grunt shunt && node demo.js",
+    "deploy": "npm install -l && grunt shunt && node demo.js",
     "test" : "grunt test",
     "chrome": "open -a \"Google Chrome\" --args --use-fake-ui-for-media-stream --use-fake-device-for-media-stream"
   },

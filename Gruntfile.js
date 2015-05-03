@@ -86,9 +86,8 @@ module.exports = function(grunt) {
 			// Shunt the source files into a distribution directory
 			src : {
 				// Create files newFile=>Packages
-				"./bin/index.html" : "./src/index.html",
+				"./dist/index.html" : "./src/index.html",
 				"./dist/peer.min.js" : "./dist/peer.js",
-				"./bin/peer.js" : "./dist/peer.js",
 
 				// Extend options for this task
 				options : {
