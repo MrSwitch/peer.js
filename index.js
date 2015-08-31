@@ -36,7 +36,7 @@ module.exports = function(app){
 			// Log
 			log( (data.from || 'new'), data.type, peer.id, data );
 
-			// 
+			//
 			socket.send(JSON.stringify(data));
 		};
 

@@ -1,1 +1,1 @@
-web: node demo.js
+web: npm run deploy

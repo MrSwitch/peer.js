@@ -7,17 +7,17 @@ PeerJS is a service which makes it easier to build a chat room using [WebRTC](ht
 
 
 
-	<button type="button" onclick="window.location.hash = parseInt(Math.random()*1e4,10).toString(16);">New thread</button>
-	<button type="button" onclick="toggleMedia()">Toggle User Media</button>
-	<button type="button" onclick="toggleMute()">Mute</button>
-	<button type="button" onclick="togglePicture()">Picture</button>
-	<button type="button" onclick="window.location.hash = '';">Exit Thread</button>
-	<div class="demo">
-		<video id="myvideo" onclick="toggleMedia()"></video>
-	</div>
-	<input type="text" name="input" placeholder="message"/>
-	<pre id="messages"></pre>
-	Add file <input type="file" onchange="addFile(this.files)" />
+New thread
+Toggle User Media
+Mute
+Picture
+Exit Thread
+
+	<video id="myvideo" onclick="toggleMedia()"></video>
+
+
+``````
+Add file
 
 
 
@@ -632,7 +632,7 @@ Clients connect by passing their PeerConnection credentials together, we can lis
 
 
 ### "Start camera"
-Create the background text on the Video Element###
+Create the background text on the Video Element
 
 ```javascript
 	if(document.getCSSCanvasContext){

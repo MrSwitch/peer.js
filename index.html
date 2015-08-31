@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <meta charset='utf-8'>
+<html class="adorn-toc-off">
+<meta charset='utf-8'>
+<meta name="ga:tracking" content="UA-35317561-4" />
+<meta name="favicon" content="//adodson.com/favicon.ico" />
+<link rel="shortcut icon" href="//adodson.com/favicon.ico" type="image/x-icon" />
+<meta name="manifest" content="//adodson.com/manifest.json" />
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
-
 <link href="/adorn/adorn.css" rel="stylesheet"/>
+<script src="/adorn/adorn.js" async></script>
 
-<script src="../bower_components/require-sync/require-sync.js"></script>
 <script src="https://peers.herokuapp.com/peer.min.js"></script>
 
 
@@ -52,17 +57,17 @@ PeerJS is a service which makes it easier to build a chat room using <a href="ht
 
 
 <form class="msg">
-	<button type="button" onclick="window.location.hash = parseInt(Math.random()*1e4,10).toString(16);">New thread</button>
-	<button type="button" onclick="toggleMedia()">Toggle User Media</button>
-	<button type="button" onclick="toggleMute()">Mute</button>
-	<button type="button" onclick="togglePicture()">Picture</button>
-	<button type="button" onclick="window.location.hash = '';">Exit Thread</button>
-	<div class="demo">
-		<video id="myvideo" onclick="toggleMedia()"></video>
-	</div>
-	<input type="text" name="input" placeholder="message"/>
-	<pre id="messages"></pre>
-	Add file <input type="file" onchange="addFile(this.files)" />
+<button type="button" onclick="window.location.hash = parseInt(Math.random()*1e4,10).toString(16);">New thread</button>
+<button type="button" onclick="toggleMedia()">Toggle User Media</button>
+<button type="button" onclick="toggleMute()">Mute</button>
+<button type="button" onclick="togglePicture()">Picture</button>
+<button type="button" onclick="window.location.hash = '';">Exit Thread</button>
+<div class="demo">
+	<video id="myvideo" onclick="toggleMedia()"></video>
+</div>
+<input type="text" name="input" placeholder="message"/>
+<pre id="messages"></pre>
+Add file <input type="file" onchange="addFile(this.files)" />
 </form>
 
 
@@ -677,7 +682,7 @@ else{
 
 
 <h3>"Start camera"</h3>
-<p>Create the background text on the Video Element</h3>
+<p>Create the background text on the Video Element</p>
 
 <script class="pre">
 	if(document.getCSSCanvasContext){

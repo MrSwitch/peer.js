@@ -8,7 +8,7 @@ module.exports = function(grunt) {
 					findNestedDependencies: true,
 					baseUrl: './src/',
 					preserveLicenseComments: false,
-					optimize: 'uglify2',
+					optimize: 'none',
 					name: 'peer',
 					out: 'dist/peer.js',
 					wrap: {
@@ -77,6 +77,7 @@ module.exports = function(grunt) {
 				"./index.html" : "src/index.html",
 				options : {
 					replace : {
+						'<script src="../bower_components/require-sync/require-sync.js"></script>' : '',
 						"./peer.js" : "https://peers.herokuapp.com/peer.min.js"
 					}
 				}
@@ -114,6 +115,6 @@ module.exports = function(grunt) {
 
 	grunt.registerTask('test', ['jshint']);
 	grunt.registerTask('build', ['test','requirejs', 'shunt']);
-	grunt.registerTask('default', ['jshint','requirejs']);
+	grunt.registerTask('default', ['test','requirejs']);
 
 };
