@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<meta charset='utf-8'> 
+<meta charset='utf-8'>
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
 
 <link href="/adorn/adorn.css" rel="stylesheet"/>
@@ -11,7 +11,7 @@
 <style>
 	.demo{
 		border:1px solid #ccc;
-		display: flex; 
+		display: flex;
 	}
 	.demo video{
 		border:1px solid #eee;
@@ -104,8 +104,8 @@ else{
 		}
 
 		// Add media triggers the getUserMedia method
-		// Then calls the callback showLocalStream 
-		peer.addMedia(showLocalStream);	
+		// Then calls the callback showLocalStream
+		peer.addMedia(showLocalStream);
 	}
 
 </script>
@@ -234,14 +234,14 @@ else{
 			// Describes the type of media to accept
 			peer.thread( threadId, {video:true} );
 		}
-		
+
 		if(!threadId && _threadId){
 
 			// Kill the last thread
 			peer.thread( _threadId, false);
 		}
 
-		// Have we got a new room, 
+		// Have we got a new room,
 		// Is there an old thread
 		else if( _threadId && _threadId !== threadId ){
 
@@ -357,13 +357,13 @@ else{
 		var data = {
 			thread: _threadId,
 			data:this.input.value
-		}; 
+		};
 		messageHandler(data);
 		peer.send('message',data);
 		this.input.value = '';
 	});
 
-	// Listen to peer 'message'	
+	// Listen to peer 'message'
 	peer.on('message', messageHandler);
 
 </script>
@@ -544,7 +544,7 @@ else{
 	// A member has changed their permissions
 	peer.on( 'thread:change', function(e){
 
-		// A user has changed their permissions to send and recieve video in this thread 
+		// A user has changed their permissions to send and recieve video in this thread
 
 		/////////////////////
 		// Behind the scenes:
