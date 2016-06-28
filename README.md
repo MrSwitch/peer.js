@@ -17,7 +17,7 @@ Exit Thread
 
 
 ``````
-Add file
+Add file 
 
 
 
@@ -59,8 +59,8 @@ Next, create a unique id with Math.random() for the chat room, you could hard co
 		}
 
 		// Add media triggers the getUserMedia method
-		// Then calls the callback showLocalStream
-		peer.addMedia(showLocalStream);
+		// Then calls the callback showLocalStream 
+		peer.addMedia(showLocalStream);	
 	}
 
 ```
@@ -189,14 +189,14 @@ FYI: Threads are like rooms. But a session can be on multiple threads simultaneo
 			// Describes the type of media to accept
 			peer.thread( threadId, {video:true} );
 		}
-
+		
 		if(!threadId && _threadId){
 
 			// Kill the last thread
 			peer.thread( _threadId, false);
 		}
 
-		// Have we got a new room,
+		// Have we got a new room, 
 		// Is there an old thread
 		else if( _threadId && _threadId !== threadId ){
 
@@ -312,13 +312,13 @@ FYI: Threads are like rooms. But a session can be on multiple threads simultaneo
 		var data = {
 			thread: _threadId,
 			data:this.input.value
-		};
+		}; 
 		messageHandler(data);
 		peer.send('message',data);
 		this.input.value = '';
 	});
 
-	// Listen to peer 'message'
+	// Listen to peer 'message'	
 	peer.on('message', messageHandler);
 
 ```
@@ -499,7 +499,7 @@ Tag your session and watch for other tags in the presence api.
 	// A member has changed their permissions
 	peer.on( 'thread:change', function(e){
 
-		// A user has changed their permissions to send and recieve video in this thread
+		// A user has changed their permissions to send and recieve video in this thread 
 
 		/////////////////////
 		// Behind the scenes:
